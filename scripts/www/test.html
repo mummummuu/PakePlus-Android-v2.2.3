@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>标枪接力</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 60%, #90EE90 60%, #228B22 100%);
+        }
+        #gameCanvas {
+            display: block;
+        }
+        #message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 24px;
+            display: none;
+            z-index: 100;
+            text-align: center;
+        }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 50;
+        }
+        #powerBar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            overflow: hidden;
+            display: none;
+            z-index: 50;
+        }
+        #powerFill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, #00FF00, #FFFF00, #FF0000);
+            transition: width 0.05s;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="message"></div>
+    <div id="info">
+        <div>当前选手: <span id="currentPlayer">1</span></div>
+        <div>剩余选手: <span id="remainingPlayers">5</span></div>
+        <div style="margin-top: 10px; font-size: 14px;">鼠标瞄准，按住蓄力，松开发射</div>
+        <div>空格键接标枪</div>
+        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+            <div>重力加速度: <span id="gravityDisplay">9.8</span> m/s²</div>
+            <div>蓄力初速度: <span id="powerSpeed">0</span></div>
+            <div>标枪速度: <span id="javelinSpeed">-</span></div>
+            <div>区域长度:</div>
+            <div id="segmentLengths"></div>
+            <div>标枪角度: <span id="javelinAngle">-</span></div>
+            <div>sin: <span id="javelinSin">-</span></div>
+            <div>cos: <span id="javelinCos">-</span></div>
+            <div>tan: <span id="javelinTan">-</span></div>
+        </div>
+    </div>
+    <div id="powerBar"><div id="powerFill"></div></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageDiv = document.getElementById('message');
+        const powerBar = document.getElementById('powerBar');
+        const powerFill = document.getElementById('powerFill');
+        const currentPlayerSpan = document.getElementById('currentPlayer');
+        const remainingPlayersSpan = document.getElementById('remainingPlayers');
+        const gravityDisplaySpan = document.getElementById('gravityDisplay');
+        const powerSpeedSpan = document.getElementById('powerSpeed');
+        const javelinSpeedSpan = document.getElementById('javelinSpeed');
+        const segmentLengthsDiv = document.getElementById('segmentLengths');
+        const javelinAngleSpan = document.getElementById('javelinAngle');
+        const javelinSinSpan = document.getElementById('javelinSin');
+        const javelinCosSpan = document.getElementById('javelinCos');
+        const javelinTanSpan = document.getElementById('javelinTan');
+
+        // 设置画布大小
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 游戏常量
+        const GROUND_Y = canvas.height * 0.6;
+        const PLAYER_WIDTH = 60;
+        const PLAYER_HEIGHT = 100;
+        const PLAYER_AREA_LENGTH = 150;
+        const EMPTY_AREA_LENGTH = 200;
+        const MAX_POWER = 30;
+        const POWER_SCALE = 0.5;
+        const JAVELIN_LENGTH = 40;
+        const GRAVITY = 0.4;
+        const CATCH_WINDOW = 0.5; // 接标枪时间窗口（秒）
+        
+        // 国际单位制转换
+        const PIXELS_PER_METER = 100; // 1米 = 100像素
+        const FPS = 60; // 假设60帧每秒
+        
+        function pixelsToMeters(pixels) {
+            return pixels / PIXELS_PER_METER;
+        }
+        
+        function metersToPixels(meters) {
+            return meters * PIXELS_PER_METER;
+        }
+        
+        function pixelsPerFrameToMetersPerSecond(pixelsPerFrame) {
+            return pixelsPerFrame * FPS / PIXELS_PER_METER;
+        }
+
+        // 游戏状态
+        let gameState = {
+            cameraX: 0,
+            currentPlayerIndex: 0,
+            players: [],
+            spectators: [],
+            javelin: null,
+            isCharging: false,
+            chargeStartTime: 0,
+            chargePower: 0,
+            trail: [],
+            segments: [],
+            gameOver: false,
+            catchingPressed: false,
+            catchPressTime: 0,
+            isAnimating: false,
+            nextPlayerId: 6 // 新选手ID从6开始
+        };
+
+        // 初始化选手
+        function initPlayers() {
+            gameState.players = [];
+            for (let i = 0; i < 5; i++) {
+                gameState.players.push({
+                    id: i + 1,
+                    x: 0, // 绝对位置，后续在initSegments中设置
+                    y: GROUND_Y - PLAYER_HEIGHT,
+                    alive: true,
+                    holding: i === 0
+                });
+            }
+        }
+
+        // 初始化观众
+        function initSpectators() {
+            gameState.spectators = [];
+            gameState.segments.forEach((segment, index) => {
+                if (segment.type === 'spectator') {
+                    const count = Math.floor(segment.length / 40);
+                    for (let i = 0; i < count; i++) {
+                        gameState.spectators.push({
+                            x: segment.startX + 20 + i * 40 + Math.random() * 20,
+                            y: GROUND_Y - 30 - Math.random() * 20,
+                            alive: true,
+                            color: `hsl(${Math.random() * 360}, 70%, 60%)`
+                        });
+                    }
+                }
+            });
+        }
+
+        // 初始化跑道段落
+        function initSegments() {
+            gameState.segments = [];
+            
+            // 首先设置选手的初始位置
+            let currentX = 0;
+            
+            // 设置所有5个选手的位置
+            for (let i = 0; i < 5; i++) {
+                gameState.players[i].x = currentX + PLAYER_AREA_LENGTH / 2 - PLAYER_WIDTH / 2;
+                currentX += PLAYER_AREA_LENGTH;
+                
+                // 每个选手后面都添加观众席（包括最后一个）
+                const spectatorLength = 150 + Math.random() * 200;
+                currentX += spectatorLength;
+            }
+
+            // 生成所有选手的段落
+            for (let i = 0; i < 5; i++) {
+                // 选手位置
+                gameState.segments.push({
+                    type: 'player',
+                    playerIndex: i,
+                    startX: gameState.players[i].x - PLAYER_AREA_LENGTH / 2 + PLAYER_WIDTH / 2,
+                    length: PLAYER_AREA_LENGTH
+                });
+                
+                // 观众席（每个选手后面都有）
+                const spectatorStart = gameState.players[i].x + PLAYER_AREA_LENGTH / 2 + PLAYER_WIDTH / 2;
+                if (i < 4) {
+                    // 前4个选手后面是到下一个选手之间的观众席
+                    const spectatorLength = gameState.players[i + 1].x - PLAYER_AREA_LENGTH / 2 - PLAYER_WIDTH / 2 - spectatorStart;
+                    if (spectatorLength > 0) {
+                        gameState.segments.push({
+                            type: 'spectator',
+                            startX: spectatorStart,
+                            length: spectatorLength
+                        });
+                    }
+                } else {
+                    // 最后一个选手后面是固定长度的观众席
+                    gameState.segments.push({
+                        type: 'spectator',
+                        startX: spectatorStart,
+                        length: 150 + Math.random() * 200
+                    });
+                }
+            }
+        }
+
+        // 重置游戏
+        function resetGame() {
+            gameState.cameraX = 0;
+            gameState.currentPlayerIndex = 0;
+            gameState.isCharging = false;
+            gameState.chargePower = 0;
+            gameState.trail = [];
+            gameState.gameOver = false;
+            gameState.catchingPressed = false;
+            gameState.isAnimating = false;
+            gameState.nextPlayerId = 6; // 重置新选手ID为6
+            
+            initPlayers();
+            initSegments();
+            initSpectators();
+            
+            // 设置cameraX，使选手1显示在屏幕左侧100px处
+            const player1 = gameState.players[0];
+            gameState.cameraX = player1.x - 100;
+            
+            gameState.javelin = null;
+            
+            updateInfo();
+        }
+
+        // 更新信息显示
+        function updateInfo() {
+            const currentPlayer = getCurrentPlayer();
+            currentPlayerSpan.textContent = currentPlayer.id;
+            const alivePlayers = gameState.players.filter(p => p.alive).length;
+            remainingPlayersSpan.textContent = alivePlayers;
+            
+            // 计算并显示重力加速度（转换为米/秒²）
+            // GRAVITY是像素/帧²，转换为米/秒²：GRAVITY * FPS² / PIXELS_PER_METER
+            const gravityMetersPerSecondSquared = GRAVITY * FPS * FPS / PIXELS_PER_METER;
+            gravityDisplaySpan.textContent = gravityMetersPerSecondSquared.toFixed(2);
+            
+            // 更新蓄力速度（转换为米/秒）
+            const currentPower = Math.min(gameState.chargePower, MAX_POWER) * POWER_SCALE;
+            const speedMetersPerSecond = pixelsPerFrameToMetersPerSecond(currentPower);
+            powerSpeedSpan.textContent = speedMetersPerSecond.toFixed(2) + ' m/s';
+            
+            // 更新标枪当前速度
+            if (gameState.javelin) {
+                const vx = gameState.javelin.vx;
+                const vy = gameState.javelin.vy;
+                const speedPixelsPerFrame = Math.sqrt(vx * vx + vy * vy);
+                const speedMetersPerSecond = pixelsPerFrameToMetersPerSecond(speedPixelsPerFrame);
+                javelinSpeedSpan.textContent = speedMetersPerSecond.toFixed(2) + ' m/s';
+            } else {
+                javelinSpeedSpan.textContent = '-';
+            }
+            
+            // 更新区域长度（转换为米）
+            let segmentLengthsHTML = '';
+            gameState.segments.forEach((seg, index) => {
+                const typeText = seg.type === 'player' ? `选手${gameState.players[seg.playerIndex].id}` : 
+                                seg.type === 'spectator' ? '观众席' : '空地';
+                const lengthMeters = pixelsToMeters(seg.length);
+                segmentLengthsHTML += `<div>${typeText}: ${lengthMeters.toFixed(2)}m</div>`;
+            });
+            segmentLengthsDiv.innerHTML = segmentLengthsHTML;
+            
+            // 更新标枪角度
+            if (gameState.javelin) {
+                const angle = gameState.javelin.angle;
+                const angleDegrees = angle * (180 / Math.PI);
+                javelinAngleSpan.textContent = `${angleDegrees.toFixed(1)}° (${angle.toFixed(3)}rad)`;
+                javelinSinSpan.textContent = Math.sin(angle).toFixed(3);
+                javelinCosSpan.textContent = Math.cos(angle).toFixed(3);
+                javelinTanSpan.textContent = Math.tan(angle).toFixed(3);
+            } else {
+                javelinAngleSpan.textContent = '-';
+                javelinSinSpan.textContent = '-';
+                javelinCosSpan.textContent = '-';
+                javelinTanSpan.textContent = '-';
+            }
+        }
+
+        // 显示消息
+        function showMessage(text, duration = 2000) {
+            messageDiv.textContent = text;
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, duration);
+        }
+
+        // 获取当前持枪选手
+        function getCurrentPlayer() {
+            return gameState.players[gameState.currentPlayerIndex];
+        }
+
+        // 获取下一个选手
+        function getNextPlayer() {
+            for (let i = gameState.currentPlayerIndex + 1; i < gameState.players.length; i++) {
+                if (gameState.players[i].alive) {
+                    return gameState.players[i];
+                }
+            }
+            return null;
+        }
+
+        // 检查点是否在段落内
+        function getSegmentAtX(x) {
+            for (let seg of gameState.segments) {
+                if (x >= seg.startX && x < seg.startX + seg.length) {
+                    return seg;
+                }
+            }
+            if (x >= gameState.segments[gameState.segments.length - 1].startX + 
+                gameState.segments[gameState.segments.length - 1].length) {
+                return gameState.segments[gameState.segments.length - 1];
+            }
+            return null;
+        }
+
+        // 获取标枪落地处的选手
+        function getPlayerAtX(x) {
+            for (let player of gameState.players) {
+                if (!player.alive) continue;
+                const playerCenter = player.x + PLAYER_WIDTH / 2;
+                const playerLeft = player.x - 20; // 稍微扩大判定范围
+                const playerRight = player.x + PLAYER_WIDTH + 20;
+                if (x >= playerLeft && x <= playerRight) {
+                    return player;
+                }
+            }
+            return null;
+        }
+
+        // 获取选手的索引
+        function getPlayerIndex(player) {
+            for (let i = 0; i < gameState.players.length; i++) {
+                if (gameState.players[i].id === player.id) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // 发射标枪
+        function launchJavelin(mouseX, mouseY) {
+            const player = getCurrentPlayer();
+            const playerCenterX = player.x + PLAYER_WIDTH / 2;
+            const playerCenterY = player.y + PLAYER_HEIGHT / 3;
+
+            const dx = mouseX - (playerCenterX - gameState.cameraX);
+            const dy = mouseY - playerCenterY;
+            const angle = Math.atan2(dy, dx);
+            
+            const power = Math.min(gameState.chargePower, MAX_POWER) * POWER_SCALE;
+
+            gameState.javelin = {
+                x: playerCenterX,
+                y: playerCenterY,
+                vx: Math.cos(angle) * power,
+                vy: Math.sin(angle) * power,
+                angle: angle,
+                rotationSpeed: 0,
+                active: true
+            };
+
+            gameState.trail = [];
+            player.holding = false;
+        }
+
+        // 更新标枪
+        function updateJavelin() {
+            if (!gameState.javelin || !gameState.javelin.active) return;
+
+            const javelin = gameState.javelin;
+            
+            // 记录尾迹
+            gameState.trail.push({
+                x: javelin.x,
+                y: javelin.y
+            });
+            if (gameState.trail.length > 50) {
+                gameState.trail.shift();
+            }
+
+            // 物理更新
+            javelin.x += javelin.vx;
+            javelin.y += javelin.vy;
+            javelin.vy += GRAVITY;
+            javelin.angle = Math.atan2(javelin.vy, javelin.vx);
+
+            // 检查落地
+            if (javelin.y >= GROUND_Y - 10) {
+                javelin.y = GROUND_Y - 10;
+                javelin.active = false;
+                handleLanding(javelin);
+            }
+
+            // 检查是否飞出屏幕太远
+            if (javelin.x > gameState.cameraX + canvas.width + 500 || 
+                javelin.x < gameState.cameraX - 500) {
+                javelin.active = false;
+                handleMiss(javelin);
+            }
+        }
+
+        // 处理落地
+        function handleLanding(javelin) {
+            const segment = getSegmentAtX(javelin.x);
+            
+            if (!segment) {
+                // 标枪飞出边界
+                showMessage('标枪飞出边界，重置！');
+                resetJavelinToPlayer();
+                return;
+            }
+
+            if (segment.type === 'spectator') {
+                // 扎死观众
+                const killCount = Math.random() < 0.01 ? 3 : 1;
+                let killed = 0;
+                
+                gameState.spectators.forEach(spec => {
+                    if (spec.alive && Math.abs(spec.x - javelin.x) < 30 && killed < killCount) {
+                        spec.alive = false;
+                        killed++;
+                    }
+                });
+
+                if (killCount === 3) {
+                    showMessage('一穿三！');
+                } else {
+                    showMessage('扎死了一个观众');
+                }
+
+                resetJavelinToPlayer();
+            } else if (segment.type === 'player') {
+                // 检查是否击中选手
+                const targetPlayer = getPlayerAtX(javelin.x);
+                
+                if (targetPlayer && targetPlayer.alive && targetPlayer.id !== getCurrentPlayer().id) {
+                    // 检查是否在接标枪时间内
+                    const timeSincePress = (Date.now() - gameState.catchPressTime) / 1000;
+                    
+                    if (timeSincePress < CATCH_WINDOW) {
+                        // 接住标枪
+                        catchJavelin(targetPlayer);
+                    } else {
+                        // 没接住，扎死选手
+                        killPlayer(targetPlayer);
+                    }
+                } else {
+                    resetJavelinToPlayer();
+                }
+            }
+        }
+
+        // 接住标枪
+        function catchJavelin(targetPlayer) {
+            showMessage(`选手${targetPlayer.id}接住了标枪！`);
+            
+            // 更新选手状态
+            getCurrentPlayer().holding = false;
+            targetPlayer.holding = true;
+            gameState.currentPlayerIndex = getPlayerIndex(targetPlayer);
+            
+            // 移动视角到目标选手
+            const targetCameraX = targetPlayer.x - 100;
+            gameState.cameraX = targetCameraX;
+            
+            // 更新段落
+            gameState.javelin = null;
+            gameState.trail = [];
+            updateInfo();
+        }
+
+        // 平滑移动视角（不再使用，保留函数以避免错误）
+        function animateCamera(targetX, onComplete) {
+            // 不再移动视角，直接调用完成回调
+            if (onComplete) {
+                onComplete();
+            }
+        }
+
+        // 移动段落（不再使用，保留函数以避免错误）
+        function shiftSegments() {
+            // 不再需要移动段落
+            return;
+        }
+
+        // 杀死选手
+        function killPlayer(player) {
+            const playerIndex = getPlayerIndex(player);
+            const newX = player.x;
+            const newY = player.y;
+            
+            showMessage(`选手${player.id}被扎死了！`);
+            
+            // 创建新选手替换被扎死的选手
+            // 新选手应该是持枪的，因为标枪落在了这个位置
+            player.alive = false;
+            const newPlayer = {
+                id: gameState.nextPlayerId++,
+                x: newX,
+                y: newY,
+                alive: true,
+                holding: true  // 新选手持枪
+            };
+            
+            // 替换players数组中的选手
+            if (playerIndex >= 0) {
+                gameState.players[playerIndex] = newPlayer;
+                // 更新当前选手索引
+                gameState.currentPlayerIndex = playerIndex;
+            }
+            
+            gameState.javelin = null;
+            
+            updateInfo();
+        }
+
+        // 重置标枪到当前选手
+        function resetJavelinToPlayer() {
+            const player = getCurrentPlayer();
+            player.holding = true;
+            gameState.javelin = null;
+            gameState.trail = [];
+        }
+
+        // 绘制背景
+        function drawBackground() {
+            // 天空
+            const gradient = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 地面
+            ctx.fillStyle = '#90EE90';
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+            
+            // 跑道线
+            ctx.fillStyle = '#D2691E';
+            ctx.fillRect(0, GROUND_Y - 5, canvas.width, 10);
+        }
+
+        // 绘制段落
+        function drawSegments() {
+            gameState.segments.forEach(seg => {
+                const screenX = seg.startX - gameState.cameraX;
+                
+                if (screenX + seg.length < 0 || screenX > canvas.width) return;
+
+                if (seg.type === 'player') {
+                    // 选手区域
+                    ctx.fillStyle = 'rgba(100, 149, 237, 0.3)';
+                    ctx.fillRect(screenX, GROUND_Y - 120, seg.length, 120);
+                    ctx.strokeStyle = '#6495ED';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(screenX, GROUND_Y - 120, seg.length, 120);
+                } else if (seg.type === 'spectator') {
+                    // 观众席
+                    ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                    ctx.fillRect(screenX, GROUND_Y - 80, seg.length, 80);
+                    
+                    // 绘制观众
+                    gameState.spectators.forEach(spec => {
+                        if (!spec.alive) return;
+                        const specScreenX = spec.x - gameState.cameraX;
+                        if (specScreenX >= screenX && specScreenX < screenX + seg.length) {
+                            ctx.fillStyle = spec.color;
+                            ctx.beginPath();
+                            ctx.arc(specScreenX, spec.y, 15, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.fillStyle = '#000';
+                            ctx.beginPath();
+                            ctx.arc(specScreenX - 5, spec.y - 3, 2, 0, Math.PI * 2);
+                            ctx.arc(specScreenX + 5, spec.y - 3, 2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    });
+                } else if (seg.type === 'empty') {
+                    // 空地
+                    ctx.fillStyle = 'rgba(200, 200, 200, 0.2)';
+                    ctx.fillRect(screenX, GROUND_Y - 50, seg.length, 50);
+                }
+            });
+        }
+
+        // 绘制选手
+        function drawPlayers() {
+            gameState.players.forEach(player => {
+                if (!player.alive) return;
+                
+                const screenX = player.x - gameState.cameraX;
+                if (screenX + PLAYER_WIDTH < 0 || screenX > canvas.width) return;
+
+                // 身体
+                ctx.fillStyle = '#4169E1';
+                ctx.fillRect(screenX, player.y + 40, PLAYER_WIDTH, PLAYER_HEIGHT - 40);
+                
+                // 头
+                ctx.fillStyle = '#FFE4C4';
+                ctx.beginPath();
+                ctx.arc(screenX + PLAYER_WIDTH / 2, player.y + 20, 20, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 编号
+                ctx.fillStyle = '#FFF';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(player.id, screenX + PLAYER_WIDTH / 2, player.y + 50);
+
+                // 持标枪手势
+                if (player.holding && !gameState.javelin) {
+                    ctx.strokeStyle = '#8B4513';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + PLAYER_WIDTH / 2, player.y + 50);
+                    ctx.lineTo(screenX + PLAYER_WIDTH / 2 + 30, player.y + 45);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        // 绘制标枪
+        function drawJavelin() {
+            if (!gameState.javelin) return;
+
+            const javelin = gameState.javelin;
+            const screenX = javelin.x - gameState.cameraX;
+
+            // 绘制尾迹
+            if (gameState.trail.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 100, 0, 0.5)';
+                ctx.lineWidth = 3;
+                for (let i = 0; i < gameState.trail.length; i++) {
+                    const t = gameState.trail[i];
+                    const tx = t.x - gameState.cameraX;
+                    const ty = t.y;
+                    if (i === 0) {
+                        ctx.moveTo(tx, ty);
+                    } else {
+                        ctx.lineTo(tx, ty);
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // 绘制标枪
+            ctx.save();
+            ctx.translate(screenX, javelin.y);
+            ctx.rotate(javelin.angle);
+
+            // 枪身
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(-JAVELIN_LENGTH / 2, -3, JAVELIN_LENGTH, 6);
+
+            // 枪尖
+            ctx.beginPath();
+            ctx.moveTo(JAVELIN_LENGTH / 2, 0);
+            ctx.lineTo(JAVELIN_LENGTH / 2 - 10, -5);
+            ctx.lineTo(JAVELIN_LENGTH / 2 - 10, 5);
+            ctx.closePath();
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 绘制瞄准线
+        function drawAimLine(mouseX, mouseY) {
+            if (!gameState.isCharging || gameState.javelin) return;
+
+            const player = getCurrentPlayer();
+            const playerCenterX = player.x + PLAYER_WIDTH / 2 - gameState.cameraX;
+            const playerCenterY = player.y + PLAYER_HEIGHT / 3;
+
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.moveTo(playerCenterX, playerCenterY);
+            ctx.lineTo(mouseX, mouseY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 计算瞄准角度用于显示
+            if (gameState.mouseX !== undefined && gameState.mouseY !== undefined) {
+                const dx = gameState.mouseX - playerCenterX;
+                const dy = gameState.mouseY - playerCenterY;
+                const angle = Math.atan2(dy, dx);
+                const angleDegrees = angle * (180 / Math.PI);
+                javelinAngleSpan.textContent = `${angleDegrees.toFixed(1)}° (${angle.toFixed(3)}rad)`;
+                javelinSinSpan.textContent = Math.sin(angle).toFixed(3);
+                javelinCosSpan.textContent = Math.cos(angle).toFixed(3);
+                javelinTanSpan.textContent = Math.tan(angle).toFixed(3);
+            }
+        }
+
+        // 主游戏循环
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+            drawSegments();
+            drawPlayers();
+            drawJavelin();
+
+            // 更新标枪
+            updateJavelin();
+
+            // 更新蓄力
+            if (gameState.isCharging) {
+                const elapsed = (Date.now() - gameState.chargeStartTime) / 1000;
+                gameState.chargePower = Math.min(elapsed * 10, MAX_POWER);
+                powerFill.style.width = (gameState.chargePower / MAX_POWER * 100) + '%';
+            }
+
+            // 更新信息显示
+            updateInfo();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 鼠标事件
+        canvas.addEventListener('mousedown', (e) => {
+            if (gameState.javelin || gameState.gameOver) return;
+            if (!getCurrentPlayer().holding) return;
+
+            gameState.isCharging = true;
+            gameState.chargeStartTime = Date.now();
+            gameState.chargePower = 0;
+            powerBar.style.display = 'block';
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            gameState.mouseX = e.clientX;
+            gameState.mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!gameState.isCharging) return;
+
+            gameState.isCharging = false;
+            powerBar.style.display = 'none';
+
+            if (gameState.chargePower > 0 && !gameState.javelin) {
+                launchJavelin(e.clientX, e.clientY);
+            }
+        });
+
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !gameState.catchingPressed) {
+                gameState.catchingPressed = true;
+                gameState.catchPressTime = Date.now();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                gameState.catchingPressed = false;
+            }
+        });
+
+        // 窗口大小改变
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // 绘制瞄准线（在gameLoop外单独绘制，避免覆盖其他元素）
+        function drawOverlay() {
+            if (gameState.isCharging && !gameState.javelin && gameState.mouseX !== undefined) {
+                drawAimLine(gameState.mouseX, gameState.mouseY);
+            }
+            requestAnimationFrame(drawOverlay);
+        }
+
+        // 初始化游戏
+        resetGame();
+        gameLoop();
+        drawOverlay();
+    </script>
+</body>
+</html>
