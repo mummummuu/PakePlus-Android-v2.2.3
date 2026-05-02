@@ -822,7 +822,34 @@ left: 50%;
     gap: 6px;
     margin-left: auto;  /* 推到右侧 */
     padding-left: 20px;
-    border-left: 1px solid rgba(255,255,255,255,0.06);
+    border-left: 1px solid rgba(255,255,255,0.06);
+}
+
+/* 状态栏中的下一周按钮 */
+#statusBar #nextWeekBtn {
+    margin-left: 12px;
+    padding: 6px 16px;
+    font-size: 0.85em;
+    font-weight: 600;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    border: 1px solid rgba(46, 204, 113, 0.4);
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.2), rgba(39, 174, 96, 0.15));
+    color: #2ecc71;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans SC', sans-serif;
+    white-space: nowrap;
+}
+
+#statusBar #nextWeekBtn:hover {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.35), rgba(39, 174, 96, 0.3));
+    border-color: rgba(46, 204, 113, 0.7);
+    transform: scale(1.05);
+}
+
+#statusBar #nextWeekBtn:active {
+    transform: scale(0.97);
 }
 
 .inventory-slot {
@@ -1371,12 +1398,12 @@ body.mobile-device #logPanel {
 }
 
 body.mobile-device #seatingArea {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
 }
 
 body.mobile-device .seating-grid {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -3676,29 +3703,32 @@ body.mobile-device .modal-content.event .modal-buttons {
 
 /* 移动设备通用样式 */
 body.mobile-device {
-    /* 优化触摸体验 */
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
 }
 
 body.mobile-device #gameScreen {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
 }
 
 body.mobile-device .main-container {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
-    min-height: 100vh;
+    height: calc(100vh - 40px);
 }
 
 body.mobile-device .seating-grid {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
+    flex: none;
+    height: auto;
+    gap: var(--seat-gap, 4px);
+    padding: var(--seat-padding, 6px);
 }
 
 body.mobile-device #logPanel,
@@ -3732,6 +3762,14 @@ body.mobile-device .status-item {
 
 body.mobile-device .status-value {
     font-size: 0.9em;
+}
+
+/* 移动端状态栏中的下一周按钮 */
+body.mobile-device #statusBar #nextWeekBtn {
+    margin-left: 8px;
+    padding: 4px 10px;
+    font-size: 0.7em;
+    letter-spacing: 0;
 }
 
 /* 左侧面板和右侧控制台缩小 */
@@ -3938,11 +3976,79 @@ body.mobile-device ::-webkit-scrollbar {
 /* 座位表区域 */
 body.mobile-device #seatingArea {
     padding: 1px 0;
+    padding-bottom: 8px;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
 }
 
 body.mobile-device .seating-controls {
     padding: 3px 6px;
     margin-bottom: 1px;
+}
+
+/* 游戏主界面横屏适配 */
+@media (orientation: landscape) {
+    body.mobile-device .main-container {
+        height: calc(100vh - 40px);
+        overflow: hidden;
+    }
+    body.mobile-device .left-panel,
+    body.mobile-device #controlPanel {
+        width: 130px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.mobile-device #seatingArea {
+        flex: 1;
+        overflow: hidden;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0;
+    }
+    body.mobile-device .seating-grid {
+        flex: none;
+        height: auto;
+        gap: var(--seat-gap, 4px);
+        padding: var(--seat-padding, 6px);
+    }
+    body.mobile-device .student-cell {
+        width: var(--seat-size, 46px);
+        height: var(--seat-height, 58px);
+    }
+    body.mobile-device .control-section {
+        margin-bottom: 4px;
+    }
+    body.mobile-device .control-section h3 {
+        font-size: 0.5em;
+        margin-bottom: 2px;
+    }
+    body.mobile-device .btn {
+        padding: 3px 5px;
+        font-size: 9px;
+        min-height: 20px;
+    }
+    body.mobile-device .log-entry {
+        font-size: 0.55em;
+        padding: 1px 3px;
+    }
+    body.mobile-device .info-row {
+        font-size: 0.6em;
+    }
+    body.mobile-device #statusBar {
+        padding: 4px 10px;
+    }
+    body.mobile-device .status-item {
+        padding: 0 5px;
+        min-width: 40px;
+    }
+    body.mobile-device .status-value {
+        font-size: 0.85em;
+    }
+    body.mobile-device #statusBar #nextWeekBtn {
+        padding: 3px 8px;
+        font-size: 0.65em;
+    }
 }
 
 body.mobile-device .view-mode-label {
@@ -4049,6 +4155,37 @@ body.mobile-device .menu-right {
     max-width: 350px;
 }
 
+/* 主菜单横屏适配 */
+@media (orientation: landscape) {
+    body.mobile-device #menuScreen {
+        flex-direction: row !important;
+        height: 100vh;
+        padding: 10px;
+        overflow: hidden;
+    }
+    body.mobile-device .menu-left {
+        width: 50%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.mobile-device .menu-right {
+        width: 50%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 450px;
+    }
+    body.mobile-device .menu-title {
+        font-size: 1.8em;
+    }
+    body.mobile-device .menu-form {
+        gap: 12px;
+    }
+    body.mobile-device .start-btn {
+        padding: 12px 20px;
+        font-size: 1em;
+    }
+}
+
 body.mobile-device .form-heading {
     font-size: 0.95em;
     margin-bottom: 10px;
@@ -4138,6 +4275,82 @@ body.mobile-device .trait-desc {
 body.mobile-device .character-note {
     font-size: 0.7em;
     margin-top: 12px;
+}
+
+/* 角色选择界面横屏适配 */
+@media (orientation: landscape) {
+    body.mobile-device #characterSelectScreen {
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        height: 100vh;
+        padding: 10px;
+    }
+    body.mobile-device .character-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        max-width: 95vw;
+    }
+    body.mobile-device .character-cards {
+        flex-direction: row;
+        justify-content: center;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: 85vh;
+        gap: 15px;
+        padding: 5px;
+        width: 100%;
+    }
+    body.mobile-device .character-card {
+        width: 160px;
+        flex-shrink: 0;
+    }
+    body.mobile-device .character-title {
+        font-size: 1.5em;
+        margin-bottom: 10px;
+    }
+}
+
+/* 新游戏设置界面移动端适配 */
+@media (orientation: landscape) {
+    body.mobile-device #newGameSetupScreen {
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+    body.mobile-device .new-game-container {
+        width: 85%;
+        max-width: 550px;
+        padding: 20px 25px;
+        max-height: 90vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.mobile-device .new-game-title {
+        font-size: 1.3em;
+    }
+    body.mobile-device .menu-form {
+        gap: 8px;
+    }
+    body.mobile-device .form-group {
+        gap: 2px;
+    }
+    body.mobile-device .form-group label {
+        font-size: 0.7em;
+    }
+    body.mobile-device .form-group select,
+    body.mobile-device .form-group input {
+        padding: 5px 8px;
+        font-size: 11px;
+    }
+    body.mobile-device .start-btn {
+        padding: 10px 16px;
+        font-size: 1em;
+        margin-top: 5px;
+    }
 }
 
 /* 规则弹窗 */
@@ -4397,6 +4610,70 @@ body.mobile-device .canteen-item-icon {
     width: 48px;
     height: 48px;
     font-size: 24px;
+}
+
+/* 食堂横屏适配 */
+@media (orientation: landscape) {
+    body.mobile-device .canteen-modal {
+        flex-direction: row !important;
+        width: 95vw;
+        height: 85vh;
+    }
+    body.mobile-device .canteen-sidebar {
+        width: 100px;
+        min-width: 100px;
+        flex-direction: column !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: none;
+        height: 100%;
+    }
+    body.mobile-device .canteen-floor-tabs {
+        flex-direction: column !important;
+        width: 100%;
+    }
+    body.mobile-device .canteen-floor-tab {
+        font-size: 12px;
+        padding: 8px 6px;
+        margin: 2px 4px;
+    }
+    body.mobile-device .canteen-salary {
+        display: flex !important;
+        flex-direction: column;
+        padding: 10px 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 11px;
+    }
+    body.mobile-device .canteen-salary-label {
+        font-size: 10px;
+    }
+    body.mobile-device .canteen-salary-amount {
+        font-size: 14px;
+    }
+    body.mobile-device .canteen-items {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 10px;
+        height: 100%;
+        overflow-y: auto;
+    }
+    body.mobile-device .canteen-item {
+        padding: 8px;
+    }
+    body.mobile-device .canteen-item-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+    body.mobile-device .canteen-item-name {
+        font-size: 12px;
+    }
+    body.mobile-device .canteen-item-price {
+        font-size: 11px;
+    }
+    body.mobile-device .canteen-item button {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
 }
 
 /* Toast通知系统 */
