@@ -1,0 +1,102 @@
+{
+    "categories": [
+        {
+            "id": "items",
+            "title": "物品",
+            "icon": "📦",
+            "entries": [
+                {
+                    "id": "hero_pen",
+                    "title": "希罗的钢笔",
+                    "image": "./assets/items/pen.png",
+                    "content": "没什么意义，最近玩魔法少女的魔女审判，所以加了这个钢笔用来测试物品功能"
+                },
+                {
+                    "id": "ice_tea",
+                    "title": "小冰茶",
+                    "image": "./assets/items/drink1.png",
+                    "content": "太好了，我买的第一瓶就中奖了，这才是对的，茶脆是什么东西？"
+                },
+                {
+                    "id": "茶脆",
+                    "title": "茶脆",
+                    "image": "./assets/items/drink2.png",
+                    "content": "喝着像冰红茶\n我从来没中过奖，绝对是美国的阴谋"
+                },
+                {
+                    "id": "yijin_jing",
+                    "title": "易筋经",
+                    "image": "./assets/items/classic.png",
+                    "content": "我每天都做一遍，感觉年轻了16岁"
+                },
+                {
+                    "id": "one_yuan_ice_tea",
+                    "title": "一元乐享（小冰茶）",
+                    "image": "./assets/items/cap.png",
+                    "content": "太好了，我现在有很多"
+                },
+                {
+                    "id": "一元乐享（茶脆）",
+                    "title": "一元乐享（茶脆）",
+                    "image": "./assets/items/cap.png",
+                    "content": "事实上，这东西并不存在于世上"
+                },
+                {
+                    "id": "angry",
+                    "title": "愤怒",
+                    "image": "./assets/items/angry.png",
+                    "content": "be water my friend"
+                },
+                {
+                    "id": "mp5",
+                    "title": "MP5",
+                    "image": "./assets/items/mp5.png",
+                    "content": "十二中只有禁止mp3、mp4的校规，然而没有禁止mp5"
+                },
+                {
+                    "id": "cheers!",
+                    "title": "Cheers!",
+                    "image": "./assets/items/cheers.png",
+                    "content": "这下不得不给你点赞了"
+                }
+            ]
+        },
+        {
+            "id": "talents",
+            "title": "天赋",
+            "icon": "🎭",
+            "entries": []
+        },
+        {
+            "id": "characters",
+            "title": "角色",
+            "icon": "👤",
+            "entries": [
+                {
+                    "id": "teacher_wang",
+                    "title": "魏教授",
+                    "image": "",
+                    "content": "在十二中，他的物理水平敢称第一，没人敢称第二\n数学比数学老师还好\n爱好且精通除了足球外的全部运动项目\n权威！"
+                },
+                {
+                    "id": "teacher_wang_chem",
+                    "title": "王老师",
+                    "image": "",
+                    "content": "每节课前闪现到班里转悠两圈\n无时无刻不在看他的化学网课\n好像有时候会看斯诺克比赛"
+                },
+                {
+                    "id": "teacher_qin",
+                    "title": "秦老师",
+                    "image": "",
+                    "content": "日常乘坐双人新能源豪华敞篷跑车上班（怎么还被通报了）\n身在二三班心在一班（对，本人说的）"
+                }
+            ]
+        },
+        {
+            "id": "events",
+            "title": "事件",
+            "icon": "🎲",
+            "entries": []
+        }
+    ]
+}
