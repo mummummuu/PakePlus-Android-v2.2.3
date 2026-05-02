@@ -324,7 +324,8 @@ const Item = {
     CHA_CUI: 7,                 // 茶脆 - 食堂的旧品，中奖概率非常低！！
     ONE_YUAN_CHA_CUI: 8,        // 一元乐享（茶脆） - 喝茶脆1%概率获得
     SIGMA: 9,                   // Σ - 经典永流传
-    CHEERS: 10                  // cheers! - congratulations！：太棒了
+    CHEERS: 10,                 // cheers! - congratulations！：太棒了
+    CLAY_FIGURE: 11             // 泥巴人 - 某同事孩子制作：没用但是很可爱
 };
 
 // 物品信息映射
@@ -427,6 +428,16 @@ const ItemInfo = {
         consumable: false,
         description: "congratulations！",
         effectDescription: "太棒了"
+    },
+    [Item.CLAY_FIGURE]: {
+        id: 11,
+        name: "泥巴人",
+        icon: "./assets/items/figure.png",
+        type: "special",
+        usable: false,
+        consumable: false,
+        description: "某同事孩子制作",
+        effectDescription: "没用但是很可爱"
     }
 };
 
@@ -455,6 +466,10 @@ const CanteenItems = {
         },
         [Item.CHEERS]: {
             price: 2500,
+            available: true
+        },
+        [Item.CLAY_FIGURE]: {
+            price: 3000,
             available: true
         },
         [Item.YIJIN_JING]: {
@@ -2646,6 +2661,39 @@ function renderSeatingGrid() {
 
     seatingGrid.innerHTML = '';
 
+    // 移动端动态计算座位格子大小
+    const isMobile = document.body.classList.contains('mobile-device');
+    if (isMobile) {
+        const areaRect = seatingArea.getBoundingClientRect();
+        const controlsHeight = 30;
+        const availableHeight = areaRect.height - controlsHeight - 10;
+        const availableWidth = areaRect.width - 12;
+
+        const rows = gameClass.seats[0].length;
+        const cols = SEAT_COLUMNS;
+
+        const seatGap = 4;
+        const seatPadding = 12;
+        const seatAspect = 80 / 100;
+
+        const cellHeightFromH = (availableHeight - seatPadding * 2 - seatGap * (rows - 1)) / rows;
+        const cellWidthFromW = (availableWidth - seatPadding * 2 - seatGap * (cols - 1)) / cols;
+
+        let cellH = Math.min(cellHeightFromH, cellWidthFromW / seatAspect);
+        let cellW = cellH * seatAspect;
+
+        cellH = Math.max(cellH, 30);
+        cellW = Math.max(cellW, 24);
+
+        document.documentElement.style.setProperty('--seat-size', cellW + 'px');
+        document.documentElement.style.setProperty('--seat-height', cellH + 'px');
+        document.documentElement.style.setProperty('--seat-gap', seatGap + 'px');
+        document.documentElement.style.setProperty('--seat-padding', (seatPadding / 2) + 'px');
+
+        seatingGrid.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;
+        seatingGrid.style.justifyContent = 'center';
+    }
+
     for (let col = 0; col < SEAT_COLUMNS; col++) {
         for (let row = 0; row < gameClass.seats[col].length; row++) {
             const student = gameClass.seats[col][row];
@@ -3280,7 +3328,7 @@ function renderCanteenItems() {
     if (!floorItems) return;
 
     // 自定义显示顺序
-    const displayOrder = [Item.ICE_TEA, Item.ONE_YUAN_ICE_TEA, Item.CHA_CUI, Item.ONE_YUAN_CHA_CUI, Item.SIGMA, Item.YIJIN_JING, Item.ANGRY, Item.CHEERS, Item.MP5];
+    const displayOrder = [Item.ICE_TEA, Item.ONE_YUAN_ICE_TEA, Item.CHA_CUI, Item.ONE_YUAN_CHA_CUI, Item.SIGMA, Item.YIJIN_JING, Item.ANGRY, Item.CHEERS, Item.CLAY_FIGURE, Item.MP5];
     const sortedEntries = Object.entries(floorItems).sort((a, b) => {
         const orderA = displayOrder.indexOf(parseInt(a[0]));
         const orderB = displayOrder.indexOf(parseInt(b[0]));
@@ -5698,6 +5746,7 @@ const gameScreen = document.getElementById('gameScreen');
 const endGameScreen = document.getElementById('endGameScreen');
 const logPanel = document.getElementById('logPanel');
 const seatingGrid = document.getElementById('seatingGrid');
+const seatingArea = document.getElementById('seatingArea');
 const infoPanel = document.getElementById('infoPanel');
 const examHistory = document.getElementById('examHistory');
 
@@ -6785,6 +6834,13 @@ function startGameWithCharacter(characterType) {
                           settings.difficulty === 'Normal' ? '普通' : '困难';
     
     addLogEntry(`📚 班型：${type === ClassType.Science ? '理科班' : '文科班'} | 难度：${difficultyName} | 学生人数：${settings.studentCount}`);
+
+    // 移动端窗口resize时重新计算座位大小
+    if (document.body.classList.contains('mobile-device')) {
+        window.addEventListener('resize', () => {
+            renderSeatingGrid();
+        });
+    }
 }
 
 // ============================================================================
