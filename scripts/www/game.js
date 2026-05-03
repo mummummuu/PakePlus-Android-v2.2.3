@@ -49,7 +49,7 @@ const SCORE_CHANGE_DECAY = 0.8;
 
 // 班主任配置
 const TEACHER_HEALTH_MAX = 10;
-const TEACHER_HEALTH_EXAM_COST = 5;
+const TEACHER_HEALTH_EXAM_COST = 7;
 const TEACHER_HEALTH_COUNSEL_FAIL = 1;
 const TEACHER_HEALTH_INSTIGATE_LOVING = 4;
 const TEACHER_HEALTH_INSTIGATE_BOY = 3;
@@ -325,7 +325,8 @@ const Item = {
     ONE_YUAN_CHA_CUI: 8,        // 一元乐享（茶脆） - 喝茶脆1%概率获得
     SIGMA: 9,                   // Σ - 经典永流传
     CHEERS: 10,                 // cheers! - congratulations！：太棒了
-    CLAY_FIGURE: 11             // 泥巴人 - 某同事孩子制作：没用但是很可爱
+    CLAY_FIGURE: 11,             // 泥巴人 - 某同事孩子制作：没用但是很可爱
+    MP7: 12                      // mp7 - 德国HK公司设计制造的冲锋枪
 };
 
 // 物品信息映射
@@ -438,6 +439,16 @@ const ItemInfo = {
         consumable: false,
         description: "某同事孩子制作",
         effectDescription: "没用但是很可爱"
+    },
+    [Item.MP7]: {
+        id: 12,
+        name: "mp7",
+        icon: "./assets/items/mp7.png",
+        type: "defense",
+        usable: false,
+        consumable: false,
+        description: "德国HK公司设计制造的冲锋枪",
+        effectDescription: "放在背包中自动生效，抵消10点伤害"
     }
 };
 
@@ -502,6 +513,10 @@ const CanteenItems = {
         },
         [Item.CHA_CUI]: {
             price: 500,
+            available: true
+        },
+        [Item.MP7]: {
+            price: 9000,
             available: true
         }
     }
@@ -947,16 +962,7 @@ const ClassMeetingType = {
     SURPRISE: "惊喜班会"
 };
 
-const ActivityType = {
-    SPORTS: "运动会",
-    MOVIE: "看电影",
-    FIELD_TRIP: "春游踏青",
-    TALENT_SHOW: "才艺展示",
-    GROUP_STUDY: "集体自习",
-    PICNIC: "野餐聚会",
-    GAME_NIGHT: "游戏之夜",
-    VOLUNTEER: "志愿服务"
-};
+const ActivityType = {};
 
 // ============================================================================
 // 工具函数
@@ -2102,6 +2108,21 @@ this.lastSalaryWeek = 0;
     recoverEnergy() {
         this.energy = this.maxEnergy;
     }
+
+    takeDamage(amount) {
+        if (amount <= 0) return 0;
+        const hasMP7 = this.inventory && this.inventory.hasItem(Item.MP7);
+        let actual = amount;
+        if (hasMP7) {
+            const blocked = Math.min(amount, 10);
+            actual = amount - blocked;
+            if (blocked > 0) {
+                addLogEntry(`🛡️ mp7 抵消了 ${blocked} 点伤害！`, 'highlight');
+            }
+        }
+        this.health -= actual;
+        return actual;
+    }
 }
 
 class LeaveRequest {
@@ -2134,7 +2155,7 @@ class Inventory {
     constructor() {
         this.items = {};  // {itemId: {count: number, order: number}} 格式
         this.maxSlots = 9;
-        this.maxItemStack = 8;  // 每种物品最多8件
+        this.maxItemStack = 64;  // 每种物品最多64件
         this.nextOrder = 0;  // 下一个添加顺序
     }
     
@@ -2641,7 +2662,7 @@ function updateSalaryTooltip() {
     if (!gameClass || !gameClass.teacher) return;
     
     const deadStudents = gameClass.students.filter(s => s.status === Status.Dead).length;
-    const penalty = deadStudents * 100;
+    const penalty = deadStudents * 250;
     const baseSalary = gameClass.teacher.monthlySalary;
     const actualSalary = gameClass.teacher.noSalaryPenalty ? baseSalary : Math.max(300, baseSalary - penalty);
     
@@ -2652,6 +2673,8 @@ function updateSalaryTooltip() {
     } else if (gameClass.teacher.noSalaryPenalty && deadStudents > 0) {
         tooltipText += `（魏教授特质：死亡学生不扣工资）`;
     }
+    
+    tooltipText += `\n🏅 全勤奖：每周无学生减少 +150 元`;
     
     salaryDisplay.setAttribute('data-tooltip', tooltipText);
 }
@@ -3328,7 +3351,7 @@ function renderCanteenItems() {
     if (!floorItems) return;
 
     // 自定义显示顺序
-    const displayOrder = [Item.ICE_TEA, Item.ONE_YUAN_ICE_TEA, Item.CHA_CUI, Item.ONE_YUAN_CHA_CUI, Item.SIGMA, Item.YIJIN_JING, Item.ANGRY, Item.CHEERS, Item.CLAY_FIGURE, Item.MP5];
+    const displayOrder = [Item.ICE_TEA, Item.ONE_YUAN_ICE_TEA, Item.CHA_CUI, Item.ONE_YUAN_CHA_CUI, Item.SIGMA, Item.YIJIN_JING, Item.ANGRY, Item.CHEERS, Item.CLAY_FIGURE, Item.MP5, Item.MP7];
     const sortedEntries = Object.entries(floorItems).sort((a, b) => {
         const orderA = displayOrder.indexOf(parseInt(a[0]));
         const orderB = displayOrder.indexOf(parseInt(b[0]));
@@ -3700,6 +3723,8 @@ class Class {
         this.contestsHistory = [];
         this.week = 0;
         this.studentAliveNum = this.studentNum;
+        this._attendanceLastDeadCount = 0;
+        this.loan = { amount: 0, totalOwed: 0, weekBorrowed: 0, dueWeek: 0, weeklyRate: 0, duration: 0 };
 
         this.teacher = new Teacher(characterType);
 
@@ -4306,7 +4331,7 @@ class Class {
             // 只有魏教授（半步年级长）才不会因为学生死亡扣工资
             if (!this.teacher.noSalaryPenalty) {
                 const deadStudents = this.students.filter(s => s.status === Status.Dead).length;
-                const salaryPenalty = deadStudents * 100;  // 每死一个学生扣100
+                const salaryPenalty = deadStudents * 250;  // 每死一个学生扣250
                 actualSalary = Math.max(300, this.teacher.monthlySalary - salaryPenalty);  // 最低工资300
                 
                 if (salaryPenalty > 0) {
@@ -4322,6 +4347,27 @@ class Class {
             
             this.teacher.salary += actualSalary;
             this.teacher.lastSalaryWeek = this.week;
+        }
+
+        // 全勤奖：本周无学生减少 => 150元
+        const currentDead = this.students.filter(s => s.status === Status.Dead).length;
+        if (currentDead === this._attendanceLastDeadCount) {
+            this.teacher.salary += 150;
+            this.log('🏅 本周无学生减少，获得全勤奖 150 元！', 'highlight');
+        }
+        this._attendanceLastDeadCount = currentDead;
+
+        // 贷款利息和逾期处理
+        if (this.loan.amount > 0) {
+            this.loan.totalOwed = Math.round(this.loan.totalOwed * (1 + this.loan.weeklyRate));
+            this.log(`🏦 贷款利息 ${Math.round(this.loan.weeklyRate * 100)}%，当前欠款 ${this.loan.totalOwed} 元（截止第 ${this.loan.dueWeek} 周）`, 'warning');
+            if (this.week >= this.loan.dueWeek) {
+                this.log(`💀 贷款逾期！学校派人来算账了...`, 'danger');
+                this.ended = true;
+                this.failReason = '贷款逾期未还';
+                setTimeout(() => showEndGameScreen(), 2000);
+                return true;
+            }
         }
 
         this.log(`\n📅 第${this.week}周开始`);
@@ -4679,7 +4725,7 @@ class Class {
                 message: `约谈成功！${student.name} 积极性提升！\n精力-${TEACHER_COUNSEL_ENERGY_COST}，积极性+${STUDENT_ENTHUSIASM_COUNSEL_GAIN}`
             };
         } else {
-            this.teacher.health -= TEACHER_HEALTH_COUNSEL_FAIL;
+            this.teacher.takeDamage(TEACHER_HEALTH_COUNSEL_FAIL);
             this.log(`❌ 约谈失败！${student.name} 不听劝告，还殴打了老师！班主任血量-${TEACHER_HEALTH_COUNSEL_FAIL}，当前血量：${this.teacher.health}`, 'danger');
             checkTeacherDeath(this);
             return {
@@ -4734,166 +4780,72 @@ class Class {
         }
     }
 
-    organizeActivity(activityType = null) {
+    organizeActivity(feePerStudent) {
         if (this.teacher.energy < TEACHER_ACTIVITY_ENERGY_COST) {
-            return { success: false, message: "班主任精力不足 60，无法组织活动！" };
+            return { success: false, message: '班主任精力不足 40，无法组织活动！' };
         }
 
         this.teacher.energy -= TEACHER_ACTIVITY_ENERGY_COST;
-        this.log(`班主任精力-${TEACHER_ACTIVITY_ENERGY_COST}，当前精力：${this.teacher.energy}`);
 
-        if (!activityType) {
-            const activityTypes = Object.values(ActivityType);
-            activityType = activityTypes[Math.floor(Math.random() * activityTypes.length)];
+        const aliveStudents = this.students.filter(s =>
+            s.status !== Status.Dead && !(s.index in this.activeLeaves));
+        const count = aliveStudents.length;
+
+        if (count === 0) {
+            this.teacher.energy += TEACHER_ACTIVITY_ENERGY_COST;
+            return { success: false, message: '没有学生可以参加活动！' };
         }
 
-        this.log(`\n🎪 组织${activityType}活动`, 'highlight');
+        const netIncome = (feePerStudent - 100) * count;
+        this.teacher.salary += netIncome;
 
-        const aliveStudents = this.students.filter(s => s.status !== Status.Dead && !(s.index in this.activeLeaves));
+        this.log(`\n🎪 组织活动（每人班费 ${feePerStudent} 元，${count} 人参加）`, 'highlight');
+        this.log(`💰 班主任收支：${netIncome >= 0 ? '+' : ''}${netIncome} 元`);
 
-        switch (activityType) {
-            case ActivityType.SPORTS:
-                this.log("🏃‍♂️ 运动会开始！学生们在操场上挥洒汗水...");
-                let injuredCount = 0;
-                for (let student of aliveStudents) {
-                    const injured = Math.random() < 0.10;
-                    if (injured) {
-                        student.energy = Math.max(STUDENT_ENERGY_MIN, student.energy - 20);
-                        student.enthusiasm = Math.max(STUDENT_ENTHUSIASM_MIN, student.enthusiasm - 10);
-                        this.log(`  ⚠️ ${student.name} 受伤了！精力-20，积极性-10`, 'danger');
-                        injuredCount++;
-                    } else {
-                        student.energy = Math.max(STUDENT_ENERGY_MIN, student.energy - 10);
-                        student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 3);
-                    }
-                }
-                this.log(`效果：精力-10，积极性+3（${injuredCount}人受伤）`);
-                return {
-                    success: true,
-                    message: `运动会举办成功！\n精力-${TEACHER_ACTIVITY_ENERGY_COST}\n学生精力-10，积极性+3（${injuredCount}人受伤）`
-                };
-
-            case ActivityType.MOVIE:
-                this.log("🎬 观看电影！学生们看得津津有味...");
-                for (let student of aliveStudents) {
-                    student.energy = Math.min(STUDENT_ENERGY_MAX, student.energy + 1);
-                    student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 2);
-                }
-                this.log(`效果：精力+1，积极性+2`);
-                return {
-                    success: true,
-                    message: `电影放映成功！\n精力-${TEACHER_ACTIVITY_ENERGY_COST}\n学生精力+1，积极性+2`
-                };
-
-            case ActivityType.FIELD_TRIP:
-                this.log("🌸 春游踏青！学生们走进大自然...");
-                for (let student of aliveStudents) {
-                    student.energy = Math.min(STUDENT_ENERGY_MAX, student.energy + 2);
-                    student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 2);
-                }
-                this.log(`效果：精力+2，积极性+2`);
-                return {
-                    success: true,
-                    message: `春游踏青成功！\n精力-${TEACHER_ACTIVITY_ENERGY_COST}\n学生精力+2，积极性+2`
-                };
-
-            case ActivityType.TALENT_SHOW:
-                this.log("🎤 才艺展示！学生们展示各自的特长...");
-                const shuffled = [...aliveStudents].sort(() => Math.random() - 0.5);
-                shuffled.forEach((student, index) => {
-                    if (index < 3) {
-                        student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 5);
-                        student.energy = Math.min(STUDENT_ENERGY_MAX, student.energy + 1);
-                        this.log(`  🏆 ${student.name} 表现优异！积极性+5，精力+1`, 'highlight');
-                    } else {
-                        student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 1);
-                    }
-                });
-                this.log(`效果：前三名积极性+5精力+1，其他积极性+1`);
-                return { success: true, message: "才艺展示成功举办！" };
-
-            case ActivityType.GROUP_STUDY:
-                this.log("📚 集体自习！学生们一起学习，互相帮助...");
-                let studyImprovedCount = 0;
-                for (let student of aliveStudents) {
-                    student.enthusiasm = Math.max(STUDENT_ENTHUSIASM_MIN, student.enthusiasm - 8);
-                    if (Math.random() < 0.3) {
-                        for (let subject of student.validSubjects) {
-                            student.learnCap[subject] = Math.min(LEARN_CAP_MAX, student.learnCap[subject] + 0.5);
-                        }
-                        studyImprovedCount++;
-                    }
-                }
-                this.log(`效果：积极性-8，${studyImprovedCount}人学习能力+0.5`);
-                return { success: true, message: "集体自习结束！" };
-
-            case ActivityType.PICNIC:
-                this.log("🧺 野餐聚会！学生们享受美食，增进友谊...");
-                let relationImproved = false;
-                for (let student of aliveStudents) {
-                    student.energy = Math.min(STUDENT_ENERGY_MAX, student.energy + 2);
-                    student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 3);
-                }
-                if (Math.random() < 0.05 && aliveStudents.length >= 2) {
-                    const s1 = aliveStudents[Math.floor(Math.random() * aliveStudents.length)];
-                    const s2 = aliveStudents[Math.floor(Math.random() * aliveStudents.length)];
-                    if (s1.index !== s2.index) {
-                        const currentRel = s1.relation[s2.index] || Relations.Normal;
-                        if (currentRel === Relations.Normal) {
-                            s1.relation[s2.index] = Relations.Better;
-                            s2.relation[s1.index] = Relations.Better;
-                            relationImproved = true;
-                        }
-                    }
-                }
-                this.log(`效果：精力+2，积极性+3${relationImproved ? '，1对关系提升' : ''}`);
-                return { success: true, message: "野餐聚会成功！" };
-
-            case ActivityType.GAME_NIGHT:
-                this.log("🎮 游戏之夜！学生们玩得不亦乐乎...");
-                for (let student of aliveStudents) {
-                    student.energy = Math.min(STUDENT_ENERGY_MAX, student.energy + 1);
-                    student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 3);
-                }
-                this.log(`效果：精力+1，积极性+3`);
-                return { success: true, message: "游戏之夜圆满结束！" };
-
-            case ActivityType.VOLUNTEER:
-                this.log("🤝 志愿服务！学生们帮助社区，收获成长...");
-                let volunteerImprovedCount = 0;
-                for (let student of aliveStudents) {
-                    student.energy = Math.max(STUDENT_ENERGY_MIN, student.energy - 5);
-                    student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + 2);
-                    if (Math.random() < 0.2) {
-                        const subjects = Object.keys(student.learnCap);
-                        const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
-                        student.learnCap[randomSubject] = Math.min(LEARN_CAP_MAX, student.learnCap[randomSubject] + 0.5);
-                        volunteerImprovedCount++;
-                    }
-                }
-                this.log(`效果：精力-5，积极性+2，${volunteerImprovedCount}人随机科目+0.5`);
-                return { success: true, message: "志愿服务圆满完成！" };
-
-            default:
-                const success = Math.random() < ACTIVITY_SUCCESS_RATE;
-                if (success) {
-                    this.log("✅ 活动组织成功！", 'highlight');
-                    for (let student of aliveStudents) {
-                        student.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, student.enthusiasm + STUDENT_ENTHUSIASM_ACTIVITY_GAIN);
-                        student.energy = Math.max(STUDENT_ENERGY_MIN, student.energy - STUDENT_ENERGY_ACTIVITY_COST);
-                    }
-                    this.log(`正常状态学生积极性+${STUDENT_ENTHUSIASM_ACTIVITY_GAIN}，精力-${STUDENT_ENERGY_ACTIVITY_COST}`);
-                    return { success: true, message: "活动组织成功！" };
-                } else {
-                    this.log("❌ 活动组织失败！", 'danger');
-                    for (let student of aliveStudents) {
-                        student.enthusiasm = Math.max(STUDENT_ENTHUSIASM_MIN, student.enthusiasm - STUDENT_ENTHUSIASM_ACTIVITY_LOSS);
-                        student.energy = Math.max(STUDENT_ENERGY_MIN, student.energy - STUDENT_ENERGY_ACTIVITY_COST);
-                    }
-                    this.log(`正常状态学生积极性-${STUDENT_ENTHUSIASM_ACTIVITY_LOSS}，精力-${STUDENT_ENERGY_ACTIVITY_COST}`);
-                    return { success: false, message: "活动组织失败！" };
-                }
+        if (feePerStudent < 100) {
+            const positivity = Math.round((100 - feePerStudent) / 100 * 15);
+            const energy = Math.round((100 - feePerStudent) / 100 * 15);
+            for (let s of aliveStudents) {
+                s.enthusiasm = Math.min(STUDENT_ENTHUSIASM_MAX, s.enthusiasm + positivity);
+                s.energy = Math.min(STUDENT_ENERGY_MAX, s.energy + energy);
+            }
+            this.log(`✅ 学生很满意！积极性+${positivity}，精力+${energy}`);
+            return {
+                success: true,
+                message: `活动圆满结束！\n积极性+${positivity}，精力+${energy}\n班主任收支：${netIncome >= 0 ? '+' : ''}${netIncome} 元`
+            };
         }
+
+        const positivityChange = -Math.round((feePerStudent - 100) / 100 * 10);
+        const rebellionProb = Math.min((feePerStudent - 100) / 150, 1);
+        const damage = Math.min(2 + Math.floor((feePerStudent - 80) / 40), 12);
+
+        for (let s of aliveStudents) {
+            s.enthusiasm = Math.max(0, s.enthusiasm + positivityChange);
+        }
+        this.log(`📉 学生积极性${positivityChange}`);
+
+        let rebelled = false;
+        if (Math.random() < rebellionProb) {
+            const actualDmg = this.teacher.takeDamage(damage);
+            rebelled = true;
+            this.log(`😡 学生因班费过高而反抗！班主任被殴打，血量-${actualDmg}！`, 'danger');
+        }
+
+        if (this.teacher.health <= 0) {
+            this.ended = true;
+            this.failReason = '被学生殴打致死';
+            setTimeout(() => showEndGameScreen(), 2000);
+            return {
+                success: true,
+                message: `学生反抗过于激烈，班主任伤重不治…\n游戏结束。`
+            };
+        }
+
+        const msg = rebelled
+            ? `活动结束。\n积极性${positivityChange}\n💥 学生反抗！血量-${damage}\n班主任收支：+${netIncome} 元`
+            : `活动结束。\n积极性${positivityChange}\n✅ 无人反抗\n班主任收支：+${netIncome} 元`;
+        return { success: true, message: msg };
     }
 
     holdClassMeeting(meetingType = null) {
@@ -5010,7 +4962,7 @@ class Class {
 
         // 50%概率学生拒绝被劝退
         if (Math.random() < 0.5) {
-            this.teacher.health -= 2;
+            this.teacher.takeDamage(2);
             this.log(`💢 学生 ${student.name} 拒绝被劝退，反而殴打了班主任！`, 'danger');
             this.log(`班主任血量 -2，当前血量：${this.teacher.health}`, 'warning');
 
@@ -5080,7 +5032,7 @@ class Class {
             };
         } else {
             // 40%概率贩卖失败，学生殴打班主任
-            this.teacher.health -= 7;
+            this.teacher.takeDamage(7);
             this.log(`💢 贩卖失败！学生 ${student.name} 殴打了班主任！班主任血量-7，当前血量：${this.teacher.health}`, 'danger');
 
             if (checkTeacherDeath(this)) {
@@ -5235,8 +5187,8 @@ class Class {
                 // 恋人关系挑拨失败，被殴打的概率增加到80%
                 if (Math.random() < 0.8) {
                     const damage = s1.gender === Gender.Boy ? TEACHER_HEALTH_INSTIGATE_BOY : TEACHER_HEALTH_INSTIGATE_LOVING;
-                    this.teacher.health -= damage;
-                    this.log(`💢 挑拨恋人关系被发现！班主任被愤怒的恋人殴打了，血量-${damage}，当前血量：${this.teacher.health}`, 'danger');
+                    const actualDmg = this.teacher.takeDamage(damage);
+                    this.log(`💢 挑拨恋人关系被发现！班主任被愤怒的恋人殴打了，血量-${actualDmg}，当前血量：${this.teacher.health}`, 'danger');
 
                     if (checkTeacherDeath(this)) {
                         return { success: false, message: "挑拨恋人关系失败，班主任被殴打致死！" };
@@ -5246,8 +5198,8 @@ class Class {
                 // 普通关系挑拨失败，被殴打的概率是50%
                 if (Math.random() < 0.5) {
                     const damage = s1.gender === Gender.Boy ? TEACHER_HEALTH_INSTIGATE_BOY : TEACHER_HEALTH_INSTIGATE_LOVING;
-                    this.teacher.health -= damage;
-                    this.log(`💢 挑拨被发现！班主任被殴打了，血量-${damage}，当前血量：${this.teacher.health}`, 'danger');
+                    const actualDmg = this.teacher.takeDamage(damage);
+                    this.log(`💢 挑拨被发现！班主任被殴打了，血量-${actualDmg}，当前血量：${this.teacher.health}`, 'danger');
 
                     if (checkTeacherDeath(this)) {
                         return { success: false, message: "挑拨失败，班主任被殴打致死！" };
@@ -5259,7 +5211,7 @@ class Class {
             return { success: true, message: `成功挑拨 ${s1.name} 和 ${s2.name} 的关系！` };
         } else {
             const damage = s1.gender === Gender.Boy ? TEACHER_HEALTH_INSTIGATE_BOY : TEACHER_HEALTH_INSTIGATE_LOVING;
-            this.teacher.health -= damage;
+            const actualDmg = this.teacher.takeDamage(damage);
             
             if (currentRel === Relations.Loving) {
                 this.log(`💢 挑拨恋人关系失败！班主任被愤怒的恋人殴打了，血量-${damage}，当前血量：${this.teacher.health}`, 'danger');
@@ -6387,11 +6339,9 @@ function setupEventListeners() {
         }
     });
 
-    organizeActivityBtn.addEventListener('click', organizeActivity);
+    organizeActivityBtn.addEventListener('click', showActivityModal);
     holdMeetingBtn.addEventListener('click', holdClassMeeting);
     
-    // 为select添加change事件，更新tooltip
-    document.getElementById('activityTypeSelect').addEventListener('change', updateActivityTooltip);
     document.getElementById('meetingTypeSelect').addEventListener('change', updateMeetingTooltip);
     
 instigateBtn.addEventListener('click', startInstigateMode);
@@ -6400,6 +6350,41 @@ instigateBtn.addEventListener('click', startInstigateMode);
     // 食堂按钮
     document.getElementById('canteenBtn').addEventListener('click', showCanteenModal);
     document.getElementById('closeCanteenModalBtn').addEventListener('click', closeCanteenModal);
+    
+    // 活动弹窗
+    document.getElementById('closeActivityModalBtn').addEventListener('click', closeActivityModal);
+    document.getElementById('cancelActivityBtn').addEventListener('click', closeActivityModal);
+    document.getElementById('confirmActivityBtn').addEventListener('click', organizeActivity);
+    document.getElementById('activityFeeInput').addEventListener('input', updateActivityPreview);
+    
+    // 贷款弹窗
+    document.getElementById('loanBtn').addEventListener('click', showLoanModal);
+    document.getElementById('closeLoanModalBtn').addEventListener('click', closeLoanModal);
+    document.getElementById('cancelLoanBtn').addEventListener('click', closeLoanModal);
+    document.getElementById('confirmLoanBtn').addEventListener('click', () => {
+        const amount = parseInt(document.getElementById('loanAmountInput').value) || 0;
+        const duration = parseInt(document.getElementById('loanDurationInput').value) || 1;
+        const result = borrowLoan(amount, duration);
+        if (result.success) {
+            closeLoanModal();
+            renderAll();
+            showNotification('success', '借款成功', result.message);
+        } else {
+            showToast('error', '借款失败', result.message);
+        }
+    });
+    document.getElementById('repayLoanBtn').addEventListener('click', () => {
+        const result = repayLoan();
+        if (result.success) {
+            closeLoanModal();
+            renderAll();
+            showNotification('success', '还款成功', result.message);
+        } else {
+            showNotification('error', '还款失败', result.message);
+        }
+    });
+    document.getElementById('loanAmountInput').addEventListener('input', updateLoanPreview);
+    document.getElementById('loanDurationInput').addEventListener('input', updateLoanPreview);
     
     // 食堂楼层切换
     document.querySelectorAll('.canteen-floor-tab').forEach(tab => {
@@ -6613,7 +6598,6 @@ instigateBtn.addEventListener('click', startInstigateMode);
 function setupTooltips() {
     // 动态tooltip的更新（HTML中已静态设置）
     updateMeetingTooltip();
-    updateActivityTooltip();
 }
 
 // ============================================================================
@@ -6704,12 +6688,6 @@ function updateMeetingTooltip() {
     document.getElementById('holdMeetingBtn').setAttribute('data-tooltip', tooltipText);
 }
 
-function updateActivityTooltip() {
-    const activityType = document.getElementById('activityTypeSelect').value;
-    const tooltipText = getActivityTooltip(activityType);
-    document.getElementById('organizeActivityBtn').setAttribute('data-tooltip', tooltipText);
-}
-
 function getMeetingTooltip(meetingType) {
     switch (meetingType) {
         case 'CHICKEN_SOUP':
@@ -6726,29 +6704,6 @@ function getMeetingTooltip(meetingType) {
             return '消耗40精力，500元。全员积极性+7。惊喜活动大幅提升班级氛围。';
         default:
             return '召开班会，提升班级状态。';
-    }
-}
-
-function getActivityTooltip(activityType) {
-    switch (activityType) {
-        case 'SPORTS':
-            return '消耗40精力。全员精力-10，积极性+3。10%学生受伤风险，消耗精力但提升积极性。';
-        case 'MOVIE':
-            return '消耗40精力。全员精力+1，积极性+2。观影放松，小幅恢复状态。';
-        case 'FIELD_TRIP':
-            return '消耗40精力。全员精力+2，积极性+2。春游踏青，放松身心。';
-        case 'TALENT_SHOW':
-            return '消耗40精力。前三名积极性+5精力+1，其他积极性+1。展示才艺，激发自信。';
-        case 'GROUP_STUDY':
-            return '消耗40精力。全员积极性-8，30%人学习能力+0.5。集体学习，提升能力但消耗积极性。';
-        case 'PICNIC':
-            return '消耗40精力。全员精力+2，积极性+3。野餐聚会，增进友谊（5%概率提升关系）。';
-        case 'GAME_NIGHT':
-            return '消耗40精力。全员精力+1，积极性+3。游戏娱乐，放松心情。';
-        case 'VOLUNTEER':
-            return '消耗40精力。全员精力-5，积极性+2，20%人随机科目+0.5。志愿服务，提升社会责任感。';
-        default:
-            return '组织活动，提升班级状态。';
     }
 }
 
@@ -6951,7 +6906,9 @@ function saveToLocalStorage(slotIndex) {
             gaokao_scores: student.gaokaoScores,
             admitted_university: student.admittedUniversity ? student.admittedUniversity.name : null,
             talents: student.talents
-        }))
+        })),
+        _attendanceLastDeadCount: gameClass._attendanceLastDeadCount,
+        loan: gameClass.loan
     };
     
     const key = `${SAVE_SLOT_PREFIX}${slotIndex}`;
@@ -7109,7 +7066,15 @@ function loadGameFromData(gameData) {
             admitted_university: university
         };
     });
-    
+
+    // 恢复贷款数据
+    if (gameData.loan) {
+        gameClass.loan = gameData.loan;
+    }
+    if (typeof gameData._attendanceLastDeadCount === 'number') {
+        gameClass._attendanceLastDeadCount = gameData._attendanceLastDeadCount;
+    }
+
     gameClass._initializeSeats();
     gameClass._recalculateSeats();
     
@@ -7419,7 +7384,9 @@ function saveGame() {
             gaokao_scores: student.gaokaoScores,
             admitted_university: student.admittedUniversity ? student.admittedUniversity.name : null,
             talents: student.talents
-        }))
+        })),
+        _attendanceLastDeadCount: gameClass._attendanceLastDeadCount,
+        loan: gameClass.loan
     };
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
@@ -7560,6 +7527,14 @@ function loadGame(event) {
                     admitted_university: university
                 };
             });
+
+            // 恢复贷款数据
+            if (gameData.loan) {
+                gameClass.loan = gameData.loan;
+            }
+            if (typeof gameData._attendanceLastDeadCount === 'number') {
+                gameClass._attendanceLastDeadCount = gameData._attendanceLastDeadCount;
+            }
 
             gameClass._initializeSeats();
             gameClass._recalculateSeats();
@@ -7865,17 +7840,177 @@ function handleSwapClick(col, row, student) {
     }
 }
 
+function updateActivityPreview() {
+    if (!gameClass) return;
+    const fee = parseInt(document.getElementById('activityFeeInput').value) || 0;
+    const aliveStudents = gameClass.students.filter(s =>
+        s.status !== Status.Dead && !(s.index in gameClass.activeLeaves));
+    const count = aliveStudents.length;
+
+    document.getElementById('previewCount').textContent = count + ' 人';
+    document.getElementById('previewCost').textContent = (count * 100) + ' 元';
+    document.getElementById('previewIncome').textContent = (fee * count) + ' 元';
+
+    const net = (fee - 100) * count;
+    const netEl = document.getElementById('previewNet');
+    netEl.textContent = (net >= 0 ? '+' : '') + net + ' 元';
+    netEl.style.color = net >= 0 ? '#2ecc71' : '#e74c3c';
+
+    if (fee < 100) {
+        const pos = Math.round((100 - fee) / 100 * 15);
+        const ene = Math.round((100 - fee) / 100 * 15);
+        document.getElementById('previewEnthusiasm').textContent = '+' + pos;
+        document.getElementById('previewEnthusiasm').style.color = '#2ecc71';
+        document.getElementById('previewEnergy').textContent = '+' + ene;
+        document.getElementById('previewEnergy').style.color = '#2ecc71';
+    } else {
+        const pos = -Math.round((fee - 100) / 100 * 10);
+        document.getElementById('previewEnthusiasm').textContent = pos;
+        document.getElementById('previewEnthusiasm').style.color = '#e74c3c';
+        document.getElementById('previewEnergy').textContent = '0';
+        document.getElementById('previewEnergy').style.color = 'rgba(255,255,255,0.6)';
+    }
+}
+
+function showActivityModal() {
+    if (!gameClass) return;
+    const modal = document.getElementById('activityModal');
+    modal.style.display = 'flex';
+    updateActivityPreview();
+    document.getElementById('activityFeeInput').value = 0;
+}
+
+function closeActivityModal() {
+    document.getElementById('activityModal').style.display = 'none';
+}
+
 function organizeActivity() {
     if (!gameClass) return;
 
-    const activityType = document.getElementById('activityTypeSelect').value;
-    const result = gameClass.organizeActivity(ActivityType[activityType]);
+    const fee = parseInt(document.getElementById('activityFeeInput').value) || 0;
+    const result = gameClass.organizeActivity(fee);
+    closeActivityModal();
     renderAll();
-    if (result.success) {
-        showNotification('success', '活动组织成功', result.message);
-    } else {
-        showNotification('error', '活动组织失败', result.message);
+    showNotification(result.success ? 'success' : 'error', '组织活动', result.message);
+}
+
+// ============================================================================
+// 贷款系统
+// ============================================================================
+
+function calcLoanRate(duration) {
+    // 期限1~20周，利率20%~60%，线性增长
+    return 0.2 + (duration - 1) * (0.6 - 0.2) / 19;
+}
+
+function borrowLoan(amount, duration) {
+    if (!gameClass) return { success: false, message: '游戏未开始' };
+    if (gameClass.loan.amount > 0) {
+        return { success: false, message: '已有未还清的贷款！' };
     }
+    if (amount < 100 || amount > 5000) {
+        return { success: false, message: '贷款金额需在 100~5000 元之间！' };
+    }
+    if (duration < 1 || duration > 20) {
+        return { success: false, message: '还款期限需在 1~20 周之间！' };
+    }
+    const totalWeeks = TOTAL_SEMESTERS * SEMESTER_LENGTH;
+    if (gameClass.week + duration > totalWeeks) {
+        return { success: false, message: '还款期限超出游戏剩余时间！' };
+    }
+
+    const rate = calcLoanRate(duration);
+    gameClass.loan.amount = amount;
+    gameClass.loan.totalOwed = amount;
+    gameClass.loan.weekBorrowed = gameClass.week;
+    gameClass.loan.dueWeek = gameClass.week + duration;
+    gameClass.loan.weeklyRate = rate;
+    gameClass.loan.duration = duration;
+    gameClass.teacher.salary += amount;
+    addLogEntry(`🏦 借款 ${amount} 元，${duration} 周后到期，利率 ${Math.round(rate * 100)}%/周`, 'highlight');
+    return { success: true, message: `借款成功！\n到账：${amount} 元\n利率：${Math.round(rate * 100)}%/周\n期限：${duration} 周（第 ${gameClass.loan.dueWeek} 周到期）` };
+}
+
+function repayLoan() {
+    if (!gameClass) return { success: false, message: '游戏未开始' };
+    if (gameClass.loan.amount === 0) {
+        return { success: false, message: '没有未还清的贷款！' };
+    }
+    const totalOwed = gameClass.loan.totalOwed;
+    if (gameClass.teacher.salary < totalOwed) {
+        return { success: false, message: `资金不足！需要 ${totalOwed} 元，当前工资：${gameClass.teacher.salary} 元` };
+    }
+    gameClass.teacher.salary -= totalOwed;
+    gameClass.loan.amount = 0;
+    gameClass.loan.totalOwed = 0;
+    gameClass.loan.weekBorrowed = 0;
+    gameClass.loan.dueWeek = 0;
+    gameClass.loan.weeklyRate = 0;
+    gameClass.loan.duration = 0;
+    addLogEntry(`✅ 贷款已还清，共支付 ${totalOwed} 元`, 'highlight');
+    return { success: true, message: `贷款已还清！\n共支付：${totalOwed} 元` };
+}
+
+function showLoanModal() {
+    if (!gameClass) return;
+    const modal = document.getElementById('loanModal');
+    modal.style.display = 'flex';
+    document.getElementById('loanAmountInput').value = 500;
+    document.getElementById('loanDurationInput').value = 5;
+    updateLoanModal();
+    updateLoanPreview();
+}
+
+function closeLoanModal() {
+    document.getElementById('loanModal').style.display = 'none';
+}
+
+function updateLoanModal() {
+    const loan = gameClass.loan;
+    const statusEl = document.getElementById('loanStatus');
+    const actionsEl = document.getElementById('loanActions');
+    const repayEl = document.getElementById('loanRepayActions');
+
+    if (loan.amount > 0) {
+        actionsEl.style.display = 'none';
+        repayEl.style.display = 'flex';
+        const repayBtn = document.getElementById('repayLoanBtn');
+        const canRepay = gameClass.teacher.salary >= loan.totalOwed;
+        repayBtn.disabled = !canRepay;
+        repayBtn.textContent = canRepay ? `立即还款（${loan.totalOwed} 元）` : `资金不足（需 ${loan.totalOwed} 元）`;
+        statusEl.innerHTML = `
+            <div class="loan-card">
+                <div class="loan-card-row"><span>借款金额</span><span>${loan.amount} 元</span></div>
+                <div class="loan-card-row"><span>当前欠款</span><span style="color:#e74c3c;font-weight:700;">${loan.totalOwed} 元</span></div>
+                <div class="loan-card-row"><span>利率</span><span>${Math.round(loan.weeklyRate * 100)}%/周</span></div>
+                <div class="loan-card-row"><span>借款周</span><span>第 ${loan.weekBorrowed} 周</span></div>
+                <div class="loan-card-row"><span>截止周</span><span>第 ${loan.dueWeek} 周</span></div>
+                <div class="loan-card-row"><span>剩余时间</span><span>${Math.max(0, loan.dueWeek - gameClass.week)} 周</span></div>
+            </div>
+        `;
+    } else {
+        actionsEl.style.display = 'block';
+        repayEl.style.display = 'none';
+        statusEl.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:10px 0;">当前无贷款</p>';
+    }
+}
+
+function updateLoanPreview() {
+    const amount = parseInt(document.getElementById('loanAmountInput').value) || 0;
+    const duration = parseInt(document.getElementById('loanDurationInput').value) || 1;
+    const d = Math.max(1, Math.min(20, duration));
+    const rate = calcLoanRate(d);
+    const ratePct = Math.round(rate * 100);
+
+    document.getElementById('loanRateDisplay').textContent = ratePct;
+    document.getElementById('previewRate').textContent = ratePct + '%';
+    document.getElementById('previewWeek1').textContent = Math.round(amount * (1 + rate)) + ' 元';
+
+    const week5 = Math.round(amount * Math.pow(1 + rate, 5));
+    document.getElementById('previewWeek5').textContent = (d >= 5 ? week5 + ' 元' : '—');
+
+    const due = Math.round(amount * Math.pow(1 + rate, d));
+    document.getElementById('previewDue').textContent = (amount > 0 ? due + ' 元' : '—');
 }
 
 function holdClassMeeting() {
