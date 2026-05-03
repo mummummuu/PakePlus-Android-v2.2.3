@@ -223,25 +223,20 @@
   <h3>个人操作</h3>
   <div class="btn-group">
     <button class="btn" id="canteenBtn" data-tooltip="前往食堂购买物品">食堂</button>
+    <button class="btn" id="loanBtn">🏦 贷款</button>
+  </div>
+</div>
+
+<div class="control-section">
+  <h3>组织活动</h3>
+  <div class="btn-group">
+    <button class="btn" id="organizeActivityBtn">🎪 组织活动</button>
   </div>
 </div>
 
 <div class="control-section">
   <h3>班级管理</h3>
   <div class="btn-group">
-    <div class="activity-selector">
-      <button class="btn" id="organizeActivityBtn" data-tooltip="选择活动类型后点击组织">组织活动</button>
-      <select id="activityTypeSelect" data-tooltip="选择要组织的活动类型">
-        <option value="SPORTS">🏃‍♂️ 运动会</option>
-        <option value="MOVIE">🎬 看电影</option>
-        <option value="FIELD_TRIP">🌸 春游踏青</option>
-        <option value="TALENT_SHOW">🎤 才艺展示</option>
-        <option value="GROUP_STUDY">📚 集体自习</option>
-        <option value="PICNIC">🧺 野餐聚会</option>
-        <option value="GAME_NIGHT">🎮 游戏之夜</option>
-        <option value="VOLUNTEER">🤝 志愿服务</option>
-      </select>
-    </div>
     <div class="meeting-selector">
       <button class="btn" id="holdMeetingBtn" data-tooltip="选择班会类型后点击召开">召开班会</button>
       <select id="meetingTypeSelect" data-tooltip="选择要召开的班会类型">
@@ -568,21 +563,12 @@
             
             <!-- 选项卡 -->
             <div class="modal-tabs">
-                <button class="modal-tab active" data-tab="file">导入存档文件</button>
-                <button class="modal-tab" data-tab="browser">浏览器存档</button>
-            </div>
-            
-            <!-- 导入存档文件面板 -->
-            <div class="modal-panel active" id="filePanel">
-                <div class="file-upload-area">
-                    <input type="file" id="loadGameInput" accept=".json" style="display: none;">
-                    <button class="btn" id="loadGameFileBtn">📂 选择存档文件</button>
-                    <p class="upload-hint">选择之前保存的存档文件（.json）恢复游戏进度</p>
-                </div>
+                <button class="modal-tab active" data-tab="browser">浏览器存档</button>
+                <button class="modal-tab" data-tab="file">导入存档文件</button>
             </div>
             
             <!-- 浏览器存档面板 -->
-            <div class="modal-panel" id="browserPanel">
+            <div class="modal-panel active" id="browserPanel">
                 <div class="save-slots">
                     <div class="save-slot" data-slot="1">
                         <div class="slot-empty">空存档</div>
@@ -599,6 +585,15 @@
                     <div class="save-slot" data-slot="5">
                         <div class="slot-empty">空存档</div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- 导入存档文件面板 -->
+            <div class="modal-panel" id="filePanel">
+                <div class="file-upload-area">
+                    <input type="file" id="loadGameInput" accept=".json" style="display: none;">
+                    <button class="btn" id="loadGameFileBtn">📂 选择存档文件</button>
+                    <p class="upload-hint">选择之前保存的存档文件（.json）恢复游戏进度</p>
                 </div>
             </div>
         </div>
@@ -612,20 +607,12 @@
             
             <!-- 选项卡 -->
             <div class="modal-tabs">
-                <button class="modal-tab active" data-tab="file">导出为文件</button>
-                <button class="modal-tab" data-tab="browser">保存到浏览器</button>
-            </div>
-            
-            <!-- 导出为文件面板 -->
-            <div class="modal-panel active" id="saveFilePanel">
-                <div class="file-export-area">
-                    <button class="btn btn-success" id="exportGameBtn">💾 导出存档文件</button>
-                    <p class="export-hint">将当前游戏进度导出为JSON文件</p>
-                </div>
+                <button class="modal-tab active" data-tab="browser">保存到浏览器</button>
+                <button class="modal-tab" data-tab="file">导出为文件</button>
             </div>
             
             <!-- 保存到浏览器面板 -->
-            <div class="modal-panel" id="saveBrowserPanel">
+            <div class="modal-panel active" id="saveBrowserPanel">
                 <div class="save-slots">
                     <div class="save-slot" data-slot="1">
                         <div class="slot-empty">空存档</div>
@@ -642,6 +629,14 @@
                     <div class="save-slot" data-slot="5">
                         <div class="slot-empty">空存档</div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- 导出为文件面板 -->
+            <div class="modal-panel" id="saveFilePanel">
+                <div class="file-export-area">
+                    <button class="btn btn-success" id="exportGameBtn">💾 导出存档文件</button>
+                    <p class="export-hint">将当前游戏进度导出为JSON文件</p>
                 </div>
             </div>
         </div>
@@ -670,6 +665,78 @@
                 <div class="modal-actions">
                     <button class="btn btn-danger" id="confirmDeleteBtn">确定删除</button>
                     <button class="btn" id="cancelDeleteBtn">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 组织活动弹窗 -->
+    <div id="activityModal" class="modal">
+        <div class="modal-content modal-small">
+            <button class="modal-close" id="closeActivityModalBtn">✕</button>
+            <div class="modal-title">🎪 组织活动</div>
+            <div class="modal-body">
+                <div class="activity-fee-row">
+                    <span>每人班费：</span>
+                    <input type="number" id="activityFeeInput" value="0" min="0" max="999">
+                    <span>元</span>
+                </div>
+                <div class="activity-preview" id="activityPreview">
+                    <div class="preview-section">
+                        <div class="preview-row"><span class="preview-label">参与人数</span><span class="preview-value" id="previewCount">0</span></div>
+                        <div class="preview-row"><span class="preview-label">活动成本</span><span class="preview-value" id="previewCost">0 元</span></div>
+                        <div class="preview-row"><span class="preview-label">班费收入</span><span class="preview-value" id="previewIncome">0 元</span></div>
+                        <div class="preview-divider"></div>
+                        <div class="preview-row"><span class="preview-label">净收支</span><span class="preview-value" id="previewNet">0 元</span></div>
+                    </div>
+                    <div class="preview-section">
+                        <div class="preview-row"><span class="preview-label">预期积极性变化</span><span class="preview-value" id="previewEnthusiasm">0</span></div>
+                        <div class="preview-row"><span class="preview-label">预期精力变化</span><span class="preview-value" id="previewEnergy">0</span></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" id="cancelActivityBtn">取消</button>
+                    <button class="btn btn-success" id="confirmActivityBtn">组织活动</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 贷款弹窗 -->
+    <div id="loanModal" class="modal">
+        <div class="modal-content modal-small">
+            <button class="modal-close" id="closeLoanModalBtn">✕</button>
+            <div class="modal-title">🏦 学校贷款</div>
+            <div class="modal-body">
+                <div class="loan-status" id="loanStatus"></div>
+                <div class="loan-actions" id="loanActions">
+                    <div class="loan-borrow-row">
+                        <span style="font-size:0.9em;">借款金额：</span>
+                        <input type="number" id="loanAmountInput" value="500" min="100" max="5000" step="100">
+                        <span style="font-size:0.9em;">元</span>
+                    </div>
+                    <div class="loan-borrow-row">
+                        <span style="font-size:0.9em;">还款期限：</span>
+                        <input type="number" id="loanDurationInput" value="5" min="1" max="20" step="1" style="width:60px;">
+                        <span style="font-size:0.9em;">周</span>
+                        <span style="font-size:0.8em;color:rgba(255,255,255,0.5);">（利率 <span id="loanRateDisplay">28.4</span>%/周）</span>
+                    </div>
+                    <div class="loan-info">
+                        <p>利率规则：期限越短利率越低（最低 <strong>20%</strong>），期限越长利率越高（最高 <strong>60%</strong>）</p>
+                    </div>
+                    <div class="loan-preview" id="loanPreview">
+                        <div class="preview-row"><span class="preview-label">每周利率</span><span class="preview-value" id="previewRate">28.4%</span></div>
+                        <div class="preview-row"><span class="preview-label">第1周后需还</span><span class="preview-value" id="previewWeek1">0 元</span></div>
+                        <div class="preview-row"><span class="preview-label">第5周后需还</span><span class="preview-value" id="previewWeek5">0 元</span></div>
+                        <div class="preview-row"><span class="preview-label">到期需还</span><span class="preview-value" id="previewDue">0 元</span></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn" id="cancelLoanBtn">取消</button>
+                        <button class="btn btn-danger" id="confirmLoanBtn">借款</button>
+                    </div>
+                </div>
+                <div class="modal-actions" id="loanRepayActions" style="display:none;">
+                    <button class="btn btn-success" id="repayLoanBtn">立即还款</button>
                 </div>
             </div>
         </div>
