@@ -2153,133 +2153,237 @@ class LeaveRequest {
 
 class Inventory {
     constructor() {
-        this.items = {};  // {itemId: {count: number, order: number}} 格式
-        this.maxSlots = 9;
-        this.maxItemStack = 64;  // 每种物品最多64件
-        this.nextOrder = 0;  // 下一个添加顺序
+        this.slots = Array(40).fill(null);  // 40个槽位，每个槽位格式：{itemId: number, count: number} 或 null
+        this.maxSlots = 40;  // 总共40个槽位
+        this.maxItemStack = 64;  // 每格最多64件
     }
-    
-    // 添加物品
+
+    // 获取物品栏槽位（0-9）
+    getBarSlots() {
+        return this.slots.slice(0, 10).filter(slot => slot !== null);
+    }
+
+    // 获取背包槽位（10-39）
+    getBackpackSlots() {
+        return this.slots.slice(10, 40).filter(slot => slot !== null);
+    }
+
+    // 将背包槽位物品移至物品栏槽位
+    moveToBar(backpackSlotIndex, barSlotIndex) {
+        // 验证槽位索引
+        if (backpackSlotIndex < 10 || backpackSlotIndex >= 40) {
+            return { success: false, message: '背包槽位索引无效' };
+        }
+        if (barSlotIndex < 0 || barSlotIndex >= 10) {
+            return { success: false, message: '物品栏槽位索引无效' };
+        }
+
+        const backpackSlot = this.slots[backpackSlotIndex];
+        if (!backpackSlot) {
+            return { success: false, message: '背包槽位为空' };
+        }
+
+        const barSlot = this.slots[barSlotIndex];
+
+        // 如果目标槽位为空，直接移动
+        if (!barSlot) {
+            this.slots[barSlotIndex] = backpackSlot;
+            this.slots[backpackSlotIndex] = null;
+            return { success: true, message: '物品已移至物品栏' };
+        }
+
+        // 如果目标槽位有相同物品，尝试堆叠
+        if (barSlot.itemId === backpackSlot.itemId) {
+            const total = barSlot.count + backpackSlot.count;
+            if (total <= this.maxItemStack) {
+                barSlot.count = total;
+                this.slots[backpackSlotIndex] = null;
+                return { success: true, message: '物品已堆叠' };
+            } else {
+                return { success: false, message: '目标槽位已满' };
+            }
+        }
+
+        // 如果目标槽位有不同物品，交换
+        this.slots[barSlotIndex] = backpackSlot;
+        this.slots[backpackSlotIndex] = barSlot;
+        return { success: true, message: '物品已交换' };
+    }
+
+    // 交换两个槽位的物品
+    swapSlots(indexA, indexB) {
+        // 验证槽位索引
+        if (indexA < 0 || indexA >= 40 || indexB < 0 || indexB >= 40) {
+            return { success: false, message: '槽位索引无效' };
+        }
+
+        const temp = this.slots[indexA];
+        this.slots[indexA] = this.slots[indexB];
+        this.slots[indexB] = temp;
+
+        return { success: true, message: '槽位已交换' };
+    }
+
+    // 添加物品（优先填充物品栏0-9，再填充背包10-39）
     addItem(itemId) {
-        // 检查是否已达到最大数量
-        if (this.items[itemId] && this.items[itemId].count >= this.maxItemStack) {
-            return { success: false, message: '该物品已达最大数量' };
+        // 先尝试在物品栏（0-9）中找到相同物品并堆叠
+        for (let i = 0; i < 10; i++) {
+            const slot = this.slots[i];
+            if (slot && slot.itemId === itemId && slot.count < this.maxItemStack) {
+                slot.count++;
+                return { success: true, message: '物品已添加' };
+            }
         }
-        
-        // 检查物品栏是否已满
-        const currentItemCount = Object.keys(this.items).length;
-        if (currentItemCount >= this.maxSlots && !this.items[itemId]) {
-            return { success: false, message: '物品栏已满' };
+
+        // 再尝试在背包（10-39）中找到相同物品并堆叠
+        for (let i = 10; i < 40; i++) {
+            const slot = this.slots[i];
+            if (slot && slot.itemId === itemId && slot.count < this.maxItemStack) {
+                slot.count++;
+                return { success: true, message: '物品已添加' };
+            }
         }
-        
-        // 添加物品
-        if (this.items[itemId]) {
-            this.items[itemId].count++;
-        } else {
-            this.items[itemId] = {
-                count: 1,
-                order: this.nextOrder++
-            };
+
+        // 在物品栏（0-9）中找空槽位
+        for (let i = 0; i < 10; i++) {
+            if (!this.slots[i]) {
+                this.slots[i] = { itemId: itemId, count: 1 };
+                return { success: true, message: '物品已添加' };
+            }
         }
-        return { success: true, message: '物品已添加' };
+
+        // 在背包（10-39）中找空槽位
+        for (let i = 10; i < 40; i++) {
+            if (!this.slots[i]) {
+                this.slots[i] = { itemId: itemId, count: 1 };
+                return { success: true, message: '物品已添加' };
+            }
+        }
+
+        return { success: false, message: '物品栏已满' };
     }
-    
-    // 移除物品
+
+    // 移除物品（从所有槽位中移除）
     removeItem(itemId, count = 1) {
-        if (!this.items[itemId]) {
+        let remaining = count;
+
+        // 先从物品栏（0-9）中移除
+        for (let i = 0; i < 10 && remaining > 0; i++) {
+            const slot = this.slots[i];
+            if (slot && slot.itemId === itemId) {
+                if (slot.count <= remaining) {
+                    remaining -= slot.count;
+                    this.slots[i] = null;
+                } else {
+                    slot.count -= remaining;
+                    remaining = 0;
+                }
+            }
+        }
+
+        // 再从背包（10-39）中移除
+        for (let i = 10; i < 40 && remaining > 0; i++) {
+            const slot = this.slots[i];
+            if (slot && slot.itemId === itemId) {
+                if (slot.count <= remaining) {
+                    remaining -= slot.count;
+                    this.slots[i] = null;
+                } else {
+                    slot.count -= remaining;
+                    remaining = 0;
+                }
+            }
+        }
+
+        if (remaining === count) {
             return { success: false, message: '没有该物品' };
         }
-        
-        if (count > this.items[itemId].count) {
-            return { success: false, message: '物品数量不足' };
-        }
-        
-        this.items[itemId].count -= count;
-        
-        // 如果数量为0，删除该物品
-        if (this.items[itemId].count === 0) {
-            delete this.items[itemId];
-        }
-        
-        return { success: true, message: `已移除${count}件物品` };
+
+        return { success: true, message: `已移除${count - remaining}件物品` };
     }
-    
+
     // 使用物品
     useItem(itemId) {
-        if (!this.items[itemId]) {
+        // 检查是否有该物品
+        if (!this.hasItem(itemId)) {
             return { success: false, message: '没有该物品' };
         }
-        
+
         const itemInfo = ItemInfo[itemId];
         if (!itemInfo) {
             return { success: false, message: '物品信息不存在' };
         }
-        
+
         // 执行物品效果
         const result = this._applyItemEffect(itemId, itemInfo);
-        
+
         if (result.success) {
             // 消耗品使用后减少数量
             if (itemInfo.consumable === true) {
-                this.items[itemId].count--;
-                
-                // 如果数量为0，删除该物品
-                if (this.items[itemId].count === 0) {
-                    delete this.items[itemId];
-                }
-            }
-            
-            // 小冰茶使用后40%概率获得一元乐享
-            if (itemId === Item.ICE_TEA && Math.random() < 0.4) {
-                const addResult = this.addItem(Item.ONE_YUAN_ICE_TEA);
-                if (addResult.success) {
-                    result.message += `\n🎉 幸运！获得了一元乐享（小冰茶）！`;
+                this.removeItem(itemId, 1);
+
+                // 小冰茶使用后40%概率获得一元乐享
+                if (itemId === Item.ICE_TEA && Math.random() < 0.4) {
+                    const addResult = this.addItem(Item.ONE_YUAN_ICE_TEA);
+                    if (addResult.success) {
+                        result.message += `\n🎉 幸运！获得了一元乐享（小冰茶）！`;
+                    }
                 }
             }
         }
-        
+
         return result;
     }
-    
-    // 检查是否有物品
+
+    // 检查是否有物品（检查所有槽位）
     hasItem(itemId) {
-        return this.items[itemId] && this.items[itemId].count > 0;
-    }
-    
-    // 获取物品数量
-    getItemCount(itemId) {
-        return this.items[itemId] ? this.items[itemId].count : 0;
-    }
-    
-    // 获取所有物品列表
-    getAllItems() {
-        return Object.entries(this.items).map(([itemId, data]) => ({
-            itemId: parseInt(itemId),
-            count: data.count,
-            order: data.order
-        }));
-    }
-    
-    // 获取物品栏显示数据（9个格子）
-    getDisplaySlots() {
-        const slots = [];
-        const itemEntries = Object.entries(this.items);
-        
-        // 按照添加顺序排序
-        itemEntries.sort((a, b) => a[1].order - b[1].order);
-        
-        for (let i = 0; i < 9; i++) {
-            if (i < itemEntries.length) {
-                const [itemId, data] = itemEntries[i];
-                slots.push({ itemId: parseInt(itemId), count: data.count });
-            } else {
-                slots.push(null);
+        for (let i = 0; i < 40; i++) {
+            const slot = this.slots[i];
+            if (slot && slot.itemId === itemId && slot.count > 0) {
+                return true;
             }
         }
-        
-        return slots;
+        return false;
     }
-    
+
+    // 获取物品数量（统计所有槽位）
+    getItemCount(itemId) {
+        let total = 0;
+        for (let i = 0; i < 40; i++) {
+            const slot = this.slots[i];
+            if (slot && slot.itemId === itemId) {
+                total += slot.count;
+            }
+        }
+        return total;
+    }
+
+    // 获取所有物品列表
+    getAllItems() {
+        const items = [];
+        for (let i = 0; i < 40; i++) {
+            const slot = this.slots[i];
+            if (slot) {
+                items.push({
+                    itemId: slot.itemId,
+                    count: slot.count,
+                    slotIndex: i
+                });
+            }
+        }
+        return items;
+    }
+
+    // 获取物品栏显示数据（10个格子）
+    getDisplaySlots() {
+        return this.slots.slice(0, 10);
+    }
+
+    // 获取最大槽位数
+    getMaxSlots() {
+        return this.maxSlots;
+    }
+
     // 应用物品效果
     _applyItemEffect(itemId, itemInfo) {
         // 根据物品类型执行不同效果
@@ -2453,13 +2557,30 @@ function initGlobalTooltip() {
             updateTooltipPosition(target);
         }
     }, true);
+
+    // 移动端：点击其他地方隐藏tooltip
+    document.addEventListener('touchstart', (e) => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) {
+            hideGlobalTooltip();
+        }
+    }, true);
 }
+
+// 全局tooltip自动消失定时器
+let tooltipAutoHideTimer = null;
 
 function showGlobalTooltip(element, text) {
     // 检查物品选项弹窗是否打开，如果打开则不显示tooltip
     const itemOptionPopup = document.getElementById('itemOptionPopup');
     if (itemOptionPopup && itemOptionPopup.classList.contains('show')) {
         return;
+    }
+    
+    // 清除之前的自动消失定时器
+    if (tooltipAutoHideTimer) {
+        clearTimeout(tooltipAutoHideTimer);
+        tooltipAutoHideTimer = null;
     }
     
     const tooltip = document.getElementById('global-tooltip');
@@ -2472,9 +2593,23 @@ function showGlobalTooltip(element, text) {
     arrow.style.opacity = '1';
 
     updateTooltipPosition(element);
+
+    // 移动端自动消失：2秒后隐藏
+    if (document.body.classList.contains('mobile-device')) {
+        tooltipAutoHideTimer = setTimeout(() => {
+            hideGlobalTooltip();
+            tooltipAutoHideTimer = null;
+        }, 2000);
+    }
 }
 
 function hideGlobalTooltip() {
+    // 清除自动消失定时器
+    if (tooltipAutoHideTimer) {
+        clearTimeout(tooltipAutoHideTimer);
+        tooltipAutoHideTimer = null;
+    }
+
     const tooltip = document.getElementById('global-tooltip');
     const arrow = document.getElementById('global-tooltip-arrow');
 
@@ -2688,8 +2823,9 @@ function renderSeatingGrid() {
     const isMobile = document.body.classList.contains('mobile-device');
     if (isMobile) {
         const areaRect = seatingArea.getBoundingClientRect();
-        const controlsHeight = 30;
-        const availableHeight = areaRect.height - controlsHeight - 10;
+        const controlsEl = seatingArea.querySelector('.seating-controls');
+        const controlsHeight = controlsEl ? controlsEl.offsetHeight : 0;
+        const availableHeight = areaRect.height - controlsHeight;
         const availableWidth = areaRect.width - 12;
 
         const rows = gameClass.seats[0].length;
@@ -3020,8 +3156,8 @@ function renderInventory() {
     // 获取显示数据
     const displaySlots = inventory.getDisplaySlots();
     
-    // 渲染9个格子
-    for (let i = 0; i < 9; i++) {
+    // 渲染10个格子
+    for (let i = 0; i < 10; i++) {
         const slot = document.createElement('div');
         slot.className = 'inventory-slot';
         slot.dataset.slot = i;
@@ -3073,12 +3209,211 @@ function renderInventory() {
 function handleInventorySlotClick(itemId, slotElement, event) {
     const itemInfo = ItemInfo[itemId];
     if (!itemInfo) return;
-    
+
     const inventory = gameClass.teacher.inventory;
     const count = inventory.getItemCount(itemId);
-    
+
     // 显示小弹窗
     showItemOptionPopup(itemId, count, slotElement, event);
+}
+
+// 背包交换状态
+let backpackSwapState = {
+    active: false,        // 是否在交换模式
+    backpackSlotIndex: -1 // 待交换的背包槽位索引
+};
+
+// 渲染背包（物品栏10格 + 背包30格）
+function renderBackpack() {
+    if (!gameClass || !gameClass.teacher) return;
+
+    const inventory = gameClass.teacher.inventory;
+    const barGrid = document.getElementById('backpackBarGrid');
+    const backpackGrid = document.getElementById('backpackGrid');
+    const swapHint = document.getElementById('backpackSwapHint');
+
+    if (!barGrid || !backpackGrid) return;
+
+    // 清空现有内容
+    barGrid.innerHTML = '';
+    backpackGrid.innerHTML = '';
+
+    // 渲染物品栏（10格，槽位0-9）
+    for (let i = 0; i < 10; i++) {
+        const slotIndex = i;
+        const slot = document.createElement('div');
+        slot.className = 'backpack-slot';
+        slot.dataset.slot = slotIndex;
+
+        const slotData = inventory.slots[slotIndex];
+        if (slotData !== null) {
+            const itemInfo = ItemInfo[slotData.itemId];
+            if (itemInfo) {
+                slot.classList.add('has-item');
+                slot.dataset.tooltip = itemInfo.name;
+
+                if (itemInfo.icon.startsWith('./')) {
+                    const iconImg = document.createElement('img');
+                    iconImg.className = 'item-icon';
+                    iconImg.src = itemInfo.icon;
+                    iconImg.alt = itemInfo.name;
+                    slot.appendChild(iconImg);
+                } else {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'item-icon';
+                    iconSpan.textContent = itemInfo.icon;
+                    slot.appendChild(iconSpan);
+                }
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'item-count';
+                countSpan.textContent = `x${slotData.count}`;
+                slot.appendChild(countSpan);
+
+                // 交换模式下点击物品栏格子
+                if (backpackSwapState.active) {
+                    slot.classList.add('swap-target');
+                    slot.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        handleBackpackBarSlotClickForSwap(slotIndex);
+                    });
+                } else {
+                    // 正常模式下点击物品栏物品
+                    slot.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        handleBackpackSlotClick(slotData.itemId, slot, e);
+                    });
+                }
+            }
+        } else if (backpackSwapState.active) {
+            // 空位也可点击（移至空位）
+            slot.classList.add('swap-target');
+            slot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleBackpackBarSlotClickForSwap(slotIndex);
+            });
+        }
+
+        barGrid.appendChild(slot);
+    }
+
+    // 渲染背包（30格，槽位10-39）
+    for (let i = 0; i < 30; i++) {
+        const slotIndex = 10 + i;
+        const slot = document.createElement('div');
+        slot.className = 'backpack-slot';
+        slot.dataset.slot = slotIndex;
+
+        const slotData = inventory.slots[slotIndex];
+        if (slotData !== null) {
+            const itemInfo = ItemInfo[slotData.itemId];
+            if (itemInfo) {
+                slot.classList.add('has-item');
+                slot.dataset.tooltip = itemInfo.name;
+
+                if (itemInfo.icon.startsWith('./')) {
+                    const iconImg = document.createElement('img');
+                    iconImg.className = 'item-icon';
+                    iconImg.src = itemInfo.icon;
+                    iconImg.alt = itemInfo.name;
+                    slot.appendChild(iconImg);
+                } else {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'item-icon';
+                    iconSpan.textContent = itemInfo.icon;
+                    slot.appendChild(iconSpan);
+                }
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'item-count';
+                countSpan.textContent = `x${slotData.count}`;
+                slot.appendChild(countSpan);
+
+                // 交换模式下高亮源物品
+                if (backpackSwapState.active && slotIndex === backpackSwapState.backpackSlotIndex) {
+                    slot.classList.add('swap-source');
+                }
+
+                // 点击事件
+                slot.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (backpackSwapState.active) {
+                        // 交换模式下点击其他物品，切换源物品
+                        if (slotIndex !== backpackSwapState.backpackSlotIndex) {
+                            backpackSwapState.backpackSlotIndex = slotIndex;
+                            renderBackpack(); // 重新渲染高亮
+                        }
+                    } else {
+                        handleBackpackSlotClick(slotData.itemId, slot, e);
+                    }
+                });
+            }
+        }
+
+        backpackGrid.appendChild(slot);
+    }
+
+    // 更新交换提示
+    if (swapHint) {
+        if (backpackSwapState.active) {
+            swapHint.textContent = '请点击物品栏中的格子进行交换，或点击其他地方取消';
+            swapHint.classList.add('show');
+        } else {
+            swapHint.classList.remove('show');
+        }
+    }
+}
+
+// 处理背包格子点击
+function handleBackpackSlotClick(itemId, slotElement, event) {
+    const itemInfo = ItemInfo[itemId];
+    if (!itemInfo) return;
+
+    const inventory = gameClass.teacher.inventory;
+    const count = inventory.getItemCount(itemId);
+
+    // 显示小弹窗
+    showItemOptionPopup(itemId, count, slotElement, event);
+}
+
+// 打开背包弹窗
+function openBackpack() {
+    const modal = document.getElementById('backpackModal');
+    if (!modal) return;
+
+    // 重置交换状态
+    exitBackpackSwapMode();
+
+    // 渲染背包内容
+    renderBackpack();
+
+    // 显示弹窗
+    modal.classList.add('open');
+
+    // 添加点击外部关闭的事件监听
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            // 如果在交换模式，先退出交换模式
+            if (backpackSwapState.active) {
+                exitBackpackSwapMode();
+            } else {
+                closeBackpack();
+            }
+        }
+    };
+}
+
+// 关闭背包弹窗
+function closeBackpack() {
+    const modal = document.getElementById('backpackModal');
+    if (!modal) return;
+
+    // 重置交换状态
+    exitBackpackSwapMode();
+
+    // 隐藏弹窗
+    modal.classList.remove('open');
+    modal.onclick = null;
 }
 
 // 显示物品选项小弹窗
@@ -3142,32 +3477,47 @@ function showItemOptionPopup(itemId, count, slotElement, event) {
     
     // 绑定按钮事件
     const useBtn = document.getElementById('useItemBtn');
+    const moveToItemBarBtn = document.getElementById('moveToItemBarBtn');
     const discardAllBtn = document.getElementById('discardAllBtn');
     const closePopupBtn = document.getElementById('closePopupBtn');
-    
+
     // 根据usable属性显示/隐藏使用按钮
     if (itemInfo.usable === false) {
         useBtn.style.display = 'none';
     } else {
         useBtn.style.display = 'block';
     }
-    
+
+    // 根据槽位索引显示/隐藏"移至物品栏"按钮（仅背包槽位显示）
+    const slotIndex = parseInt(slotElement.dataset.slot);
+    if (slotIndex >= 10) {
+        moveToItemBarBtn.style.display = 'block';
+    } else {
+        moveToItemBarBtn.style.display = 'none';
+    }
+
     // 移除旧的事件监听器
     useBtn.onclick = null;
+    moveToItemBarBtn.onclick = null;
     discardAllBtn.onclick = null;
     closePopupBtn.onclick = null;
-    
+
     // 添加新的事件监听器
     useBtn.onclick = () => {
         useItemFromPopup(itemId);
         hideItemOptionPopup();
     };
-    
+
+    moveToItemBarBtn.onclick = () => {
+        moveToItemBar(slotIndex);
+        hideItemOptionPopup();
+    };
+
     discardAllBtn.onclick = () => {
         discardAllItems(itemId);
         hideItemOptionPopup();
     };
-    
+
     closePopupBtn.onclick = () => {
         hideItemOptionPopup();
     };
@@ -3180,7 +3530,7 @@ function hideItemOptionPopup() {
         // 保存触发弹窗的物品格索引
         const triggerSlot = popup.dataset.triggerSlot;
         popup.classList.remove('show');
-        
+
         // 如果鼠标还在物品格上，重新显示tooltip
         if (triggerSlot) {
             const slotElement = document.querySelector(`.inventory-slot[data-slot="${triggerSlot}"]`);
@@ -3191,6 +3541,167 @@ function hideItemOptionPopup() {
                 }
             }
         }
+    }
+}
+
+// 移动物品到物品栏
+function moveToItemBar(slotIndex) {
+    if (!gameClass || !gameClass.teacher) {
+        showToast('error', '操作失败', '游戏未初始化');
+        return;
+    }
+
+    const inventory = gameClass.teacher.inventory;
+
+    // 检查物品栏是否有空位
+    let emptySlotIndex = -1;
+    for (let i = 0; i < 10; i++) {
+        if (inventory.slots[i] === null) {
+            emptySlotIndex = i;
+            break;
+        }
+    }
+
+    if (emptySlotIndex !== -1) {
+        // 有空位，直接移动
+        const result = inventory.moveToBar(slotIndex, emptySlotIndex);
+        if (result.success) {
+            showToast('success', '移动成功', result.message);
+            renderInventory();
+            renderBackpack();
+        } else {
+            showToast('error', '移动失败', result.message);
+        }
+    } else {
+        // 物品栏已满，进入交换模式（在背包界面内高亮物品栏）
+        backpackSwapState.active = true;
+        backpackSwapState.backpackSlotIndex = slotIndex;
+        hideItemOptionPopup();
+        renderBackpack();
+    }
+}
+
+// 交换模式下点击物品栏格子
+function handleBackpackBarSlotClickForSwap(barSlotIndex) {
+    if (!gameClass || !gameClass.teacher) {
+        showToast('error', '操作失败', '游戏未初始化');
+        exitBackpackSwapMode();
+        return;
+    }
+
+    const inventory = gameClass.teacher.inventory;
+
+    // 交换槽位
+    const result = inventory.swapSlots(barSlotIndex, backpackSwapState.backpackSlotIndex);
+
+    if (result.success) {
+        showToast('success', '交换成功', result.message);
+        renderInventory();
+        renderBackpack();
+    } else {
+        showToast('error', '交换失败', result.message);
+    }
+
+    exitBackpackSwapMode();
+}
+
+// 退出交换模式
+function exitBackpackSwapMode() {
+    backpackSwapState.active = false;
+    backpackSwapState.backpackSlotIndex = -1;
+    renderBackpack();
+}
+
+// 显示物品栏选择提示
+function showItemBarSelectionPrompt(backpackSlotIndex) {
+    const prompt = document.getElementById('itemBarSelectionPrompt');
+    if (!prompt) return;
+
+    const inventory = gameClass.teacher.inventory;
+    const grid = document.getElementById('selectionPromptGrid');
+    if (!grid) return;
+
+    // 清空现有内容
+    grid.innerHTML = '';
+
+    // 保存背包槽位索引
+    prompt.dataset.backpackSlotIndex = backpackSlotIndex;
+
+    // 渲染10个物品栏槽位
+    for (let i = 0; i < 10; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'selection-prompt-slot';
+        slot.dataset.slot = i;
+
+        const slotData = inventory.slots[i];
+        if (slotData !== null) {
+            const itemInfo = ItemInfo[slotData.itemId];
+            if (itemInfo) {
+                slot.classList.add('has-item');
+
+                // 物品图标
+                if (itemInfo.icon.startsWith('./')) {
+                    const iconImg = document.createElement('img');
+                    iconImg.className = 'item-icon';
+                    iconImg.src = itemInfo.icon;
+                    iconImg.alt = itemInfo.name;
+                    slot.appendChild(iconImg);
+                } else {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'item-icon';
+                    iconSpan.textContent = itemInfo.icon;
+                    slot.appendChild(iconSpan);
+                }
+
+                // 物品数量
+                const countSpan = document.createElement('span');
+                countSpan.className = 'item-count';
+                countSpan.textContent = `x${slotData.count}`;
+                slot.appendChild(countSpan);
+            }
+        }
+
+        // 添加点击事件
+        slot.addEventListener('click', () => {
+            handleItemBarSelectionClick(i, backpackSlotIndex);
+        });
+
+        grid.appendChild(slot);
+    }
+
+    // 显示提示
+    prompt.style.display = 'flex';
+}
+
+// 处理物品栏槽位点击
+function handleItemBarSelectionClick(barSlotIndex, backpackSlotIndex) {
+    if (!gameClass || !gameClass.teacher) {
+        showToast('error', '操作失败', '游戏未初始化');
+        hideItemBarSelectionPrompt();
+        return;
+    }
+
+    const inventory = gameClass.teacher.inventory;
+
+    // 交换槽位
+    const result = inventory.swapSlots(barSlotIndex, backpackSlotIndex);
+
+    if (result.success) {
+        showToast('success', '交换成功', result.message);
+        renderInventory();
+        renderBackpack();
+    } else {
+        showToast('error', '交换失败', result.message);
+    }
+
+    hideItemBarSelectionPrompt();
+}
+
+// 隐藏物品栏选择提示
+function hideItemBarSelectionPrompt() {
+    const prompt = document.getElementById('itemBarSelectionPrompt');
+    if (prompt) {
+        prompt.style.display = 'none';
     }
 }
 
@@ -3205,10 +3716,11 @@ function useItemFromPopup(itemId) {
     const result = inventory.useItem(itemId);
     
     if (result.success) {
-        showNotification('success', '使用成功', result.message);
+        showToast('success', '使用成功', result.message);
         renderAll();
+        renderBackpack();
     } else {
-        showNotification('error', '使用失败', result.message);
+        showToast('error', '使用失败', result.message);
     }
 }
 
@@ -3221,10 +3733,11 @@ function discardAllItems(itemId) {
         const result = inventory.removeItem(itemId, count);
         
         if (result.success) {
-            showNotification('success', '丢弃成功', `已丢弃${count}件物品`);
+            showToast('success', '丢弃成功', `已丢弃${count}件物品`);
             renderInventory();
+            renderBackpack();
         } else {
-            showNotification('error', '丢弃失败', result.message);
+            showToast('error', '丢弃失败', result.message);
         }
     }
 }
@@ -3276,6 +3789,11 @@ function showToast(type, title, message, duration = 3000) {
     }
     
     document.getElementById('toastContainer').appendChild(toast);
+    
+    // 点击Toast直接关闭
+    toast.addEventListener('click', () => {
+        removeToast(true);
+    });
     
     // 保存当前Toast引用
     currentToast = toast;
@@ -6109,6 +6627,7 @@ function init() {
     initGlobalTooltip();
     setupEventListeners();
     initMenuBackground();
+    initSplashBackground();
     initCharacterSelectBackground();
     updateViewModeButtons();
     
@@ -6122,11 +6641,12 @@ function init() {
     document.addEventListener('click', (e) => {
         const popup = document.getElementById('itemOptionPopup');
         if (popup && popup.classList.contains('show')) {
-            // 检查点击是否在弹窗或物品栏格子内
+            // 检查点击是否在弹窗、物品栏格子或背包格子内
             const isClickInPopup = popup.contains(e.target);
             const isClickInSlot = e.target.closest('.inventory-slot');
-            
-            if (!isClickInPopup && !isClickInSlot) {
+            const isClickInBackpackSlot = e.target.closest('.backpack-slot');
+
+            if (!isClickInPopup && !isClickInSlot && !isClickInBackpackSlot) {
                 hideItemOptionPopup();
             }
         }
@@ -6241,7 +6761,83 @@ function initMenuBackground() {
     animate();
 }
 
+// 启动画面背景粒子动画（与主菜单相同）
+function initSplashBackground() {
+    const canvas = document.getElementById('splashBg');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    const particles = [];
+    const particleCount = 100;
+
+    for (let i = 0; i < particleCount; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.5,
+            vy: (Math.random() - 0.5) * 0.5,
+            radius: Math.random() * 2 + 1,
+            opacity: Math.random() * 0.5 + 0.2
+        });
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#0d1117');
+        gradient.addColorStop(1, '#161b22');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let p of particles) {
+            p.x += p.vx;
+            p.y += p.vy;
+
+            if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+            if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`;
+            ctx.fill();
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+}
+
 function setupEventListeners() {
+    // 启动画面点击进入主菜单（带过渡动画）
+    const splashScreen = document.getElementById('splashScreen');
+    if (splashScreen) {
+        splashScreen.addEventListener('click', () => {
+            const splashContent = document.getElementById('splashContent');
+            if (splashContent) {
+                splashContent.classList.add('fade-out');
+            }
+            // 等待淡出动画结束
+            setTimeout(() => {
+                splashScreen.style.display = 'none';
+                const menuScreen = document.getElementById('menuScreen');
+                menuScreen.style.display = 'flex';
+                // 触发 reflow 后添加 show 类启动淡入
+                void menuScreen.offsetWidth;
+                menuScreen.classList.add('show');
+            }, 300);
+        });
+    }
+
     // 角色选择界面事件监听
     document.querySelectorAll('.character-card').forEach(card => {
         card.addEventListener('click', () => {
@@ -6350,7 +6946,14 @@ instigateBtn.addEventListener('click', startInstigateMode);
     // 食堂按钮
     document.getElementById('canteenBtn').addEventListener('click', showCanteenModal);
     document.getElementById('closeCanteenModalBtn').addEventListener('click', closeCanteenModal);
-    
+
+    // 背包按钮
+    document.getElementById('backpackBtn').addEventListener('click', openBackpack);
+    document.getElementById('closeBackpackModalBtn').addEventListener('click', closeBackpack);
+
+    // 物品栏选择提示
+    document.getElementById('closeSelectionPromptBtn').addEventListener('click', hideItemBarSelectionPrompt);
+
     // 活动弹窗
     document.getElementById('closeActivityModalBtn').addEventListener('click', closeActivityModal);
     document.getElementById('cancelActivityBtn').addEventListener('click', closeActivityModal);
@@ -6425,6 +7028,9 @@ instigateBtn.addEventListener('click', startInstigateMode);
     document.getElementById('backToMenuBtn').addEventListener('click', () => {
         document.getElementById('newGameSetupScreen').style.display = 'none';
         menuScreen.style.display = 'flex';
+        requestAnimationFrame(() => {
+            menuScreen.classList.add('show');
+        });
     });
     
     // 载入弹窗
@@ -6790,12 +7396,10 @@ function startGameWithCharacter(characterType) {
     
     addLogEntry(`📚 班型：${type === ClassType.Science ? '理科班' : '文科班'} | 难度：${difficultyName} | 学生人数：${settings.studentCount}`);
 
-    // 移动端窗口resize时重新计算座位大小
-    if (document.body.classList.contains('mobile-device')) {
-        window.addEventListener('resize', () => {
-            renderSeatingGrid();
-        });
-    }
+    // 窗口resize时重新计算座位大小（移动端自适应）
+    window.addEventListener('resize', () => {
+        renderSeatingGrid();
+    });
 }
 
 // ============================================================================
@@ -6858,7 +7462,7 @@ function saveToLocalStorage(slotIndex) {
             noSalaryPenalty: gameClass.teacher.noSalaryPenalty,
             reviveChance: gameClass.teacher.reviveChance,
             subject: gameClass.teacher.subject,
-            inventory: gameClass.teacher.inventory.items
+            inventory: gameClass.teacher.inventory.slots
         },
         contestsHistory: gameClass.contestsHistory,
         pendingLeaveRequests: gameClass.pendingLeaveRequests.map(req => ({
@@ -6985,15 +7589,41 @@ function loadGameFromData(gameData) {
     gameClass.teacher.subject = gameData.teacher.subject || null;
     
     // 加载物品栏
-    if (gameData.teacher.inventory && typeof gameData.teacher.inventory === 'object') {
-        gameClass.teacher.inventory.items = gameData.teacher.inventory;
-        let maxOrder = 0;
-        for (let itemId in gameClass.teacher.inventory.items) {
-            if (gameClass.teacher.inventory.items[itemId].order > maxOrder) {
-                maxOrder = gameClass.teacher.inventory.items[itemId].order;
+    if (gameData.teacher.inventory) {
+        // 新格式：slots数组
+        if (Array.isArray(gameData.teacher.inventory)) {
+            gameClass.teacher.inventory.slots = gameData.teacher.inventory;
+        }
+        // 旧格式：items字典（向后兼容）
+        else if (typeof gameData.teacher.inventory === 'object') {
+            // 将旧的items字典转换为新的slots数组
+            const items = gameData.teacher.inventory;
+            
+            // 将items转换为数组并按order排序
+            const itemsArray = [];
+            for (let itemId in items) {
+                itemsArray.push({
+                    itemId: parseInt(itemId),
+                    count: items[itemId].count,
+                    order: items[itemId].order || 0
+                });
+            }
+            
+            // 按order从小到大排序
+            itemsArray.sort((a, b) => a.order - b.order);
+            
+            // 填充slots数组（按order排序后的顺序）
+            let slotIndex = 0;
+            for (let item of itemsArray) {
+                if (slotIndex < 40) {
+                    gameClass.teacher.inventory.slots[slotIndex] = {
+                        itemId: item.itemId,
+                        count: item.count
+                    };
+                    slotIndex++;
+                }
             }
         }
-        gameClass.teacher.inventory.nextOrder = maxOrder + 1;
     }
     
     gameClass.contestsHistory = gameData.contestsHistory || gameData.contests_history || [];
@@ -7290,7 +7920,7 @@ function saveGame() {
             noSalaryPenalty: gameClass.teacher.noSalaryPenalty,
             reviveChance: gameClass.teacher.reviveChance,
             subject: gameClass.teacher.subject,
-            inventory: gameClass.teacher.inventory.items
+            inventory: gameClass.teacher.inventory.slots
         },
         contestsHistory: gameClass.contestsHistory,
         pendingLeaveRequests: gameClass.pendingLeaveRequests.map(req => ({
@@ -7567,6 +8197,9 @@ function returnToMenu() {
     document.getElementById('characterSelectScreen').style.display = 'none';
     document.getElementById('newGameSetupScreen').style.display = 'none';
     menuScreen.style.display = 'flex';
+    requestAnimationFrame(() => {
+        menuScreen.classList.add('show');
+    });
 
     gameClass = null;
     selectedStudentIndex = null;
