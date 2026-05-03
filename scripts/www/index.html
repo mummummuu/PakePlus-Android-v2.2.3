@@ -7,9 +7,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="preload" href="./assets/bg/bg.jpg" as="image" fetchpriority="high">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- 启动画面 -->
+    <div id="splashScreen">
+        <canvas id="splashBg"></canvas>
+        <div id="splashContent">
+            <img src="./assets/bg/bg.jpg" alt="班主任模拟器" id="splashImage" fetchpriority="high">
+            <div id="splashClickHint">点击屏幕进入游戏</div>
+        </div>
+    </div>
+
     <!-- 主菜单 -->
     <div id="menuScreen">
         <canvas id="menuBg"></canvas>
@@ -37,7 +47,6 @@
             </div>
         </div>
 
-        <div class="menu-footer">班主任模拟器 v1.0 &nbsp;·&nbsp; 按 Space 推进周数</div>
     </div>
 
     <!-- 新游戏设置界面 -->
@@ -174,7 +183,10 @@
                 <div class="inventory-slot" data-slot="6"></div>
                 <div class="inventory-slot" data-slot="7"></div>
                 <div class="inventory-slot" data-slot="8"></div>
+                <div class="inventory-slot" data-slot="9"></div>
             </div>
+            <!-- 背包按钮 -->
+            <button class="btn btn-backpack" id="backpackBtn" data-tooltip="打开背包">🎒 背包</button>
             <!-- 下一周按钮 -->
             <button class="btn btn-success" id="nextWeekBtn" data-tooltip="推进到下一周，触发各种事件">下一周 (Space)</button>
         </div>
@@ -550,7 +562,22 @@
             <div class="popup-effect" id="popupItemEffect">效果：恢复30点精力</div>
             <div class="popup-actions">
                 <button class="popup-btn" id="useItemBtn">使用</button>
+                <button class="popup-btn" id="moveToItemBarBtn" style="display: none;">移至物品栏</button>
                 <button class="popup-btn popup-btn-danger" id="discardAllBtn">全部丢弃</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 物品栏选择提示 -->
+    <div class="item-bar-selection-prompt" id="itemBarSelectionPrompt">
+        <div class="selection-prompt-content">
+            <div class="selection-prompt-header">
+                <span class="selection-prompt-title">选择物品栏槽位</span>
+                <button class="selection-prompt-close" id="closeSelectionPromptBtn">×</button>
+            </div>
+            <div class="selection-prompt-message">物品栏已满，请选择一个槽位进行交换</div>
+            <div class="selection-prompt-grid" id="selectionPromptGrid">
+                <!-- 10个物品栏槽位会动态生成 -->
             </div>
         </div>
     </div>
@@ -747,7 +774,7 @@
         <div class="modal-content canteen-modal">
             <button class="modal-close" id="closeCanteenModalBtn">✕</button>
             <div class="modal-title">食堂</div>
-            
+
             <!-- 左侧楼层切换栏 -->
             <div class="canteen-sidebar">
                 <div class="canteen-floor-tabs">
@@ -755,17 +782,34 @@
                     <button class="canteen-floor-tab" data-floor="2">二楼</button>
                     <button class="canteen-floor-tab" data-floor="3">三楼</button>
                 </div>
-                
+
                 <!-- 工资显示 -->
                 <div class="canteen-salary" id="canteenSalary">当前工资：0元</div>
             </div>
-            
+
             <!-- 右侧物品展示区 -->
             <div class="canteen-content">
                 <div class="canteen-items" id="canteenItems">
                     <!-- 物品列表会动态生成 -->
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 背包弹窗 -->
+    <div id="backpackModal" class="modal">
+        <div class="modal-content backpack-modal">
+            <button class="modal-close" id="closeBackpackModalBtn">✕</button>
+            <div class="modal-title">🎒 背包</div>
+            <div class="backpack-section-label">物品栏</div>
+            <div class="backpack-grid backpack-bar-grid" id="backpackBarGrid">
+                <!-- 10个物品栏格子会动态生成 -->
+            </div>
+            <div class="backpack-section-label">背包</div>
+            <div class="backpack-grid backpack-storage-grid" id="backpackGrid">
+                <!-- 30个背包格子会动态生成 -->
+            </div>
+            <div class="backpack-swap-hint" id="backpackSwapHint"></div>
         </div>
     </div>
 
