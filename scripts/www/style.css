@@ -1398,12 +1398,12 @@ body.mobile-device #logPanel {
 }
 
 body.mobile-device #seatingArea {
-    overflow: hidden;
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
 }
 
 body.mobile-device .seating-grid {
-    overflow: hidden;
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -3723,7 +3723,7 @@ body.mobile-device .main-container {
 }
 
 body.mobile-device .seating-grid {
-    overflow: hidden;
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
     flex: none;
     height: auto;
@@ -3977,7 +3977,7 @@ body.mobile-device ::-webkit-scrollbar {
 body.mobile-device #seatingArea {
     padding: 1px 0;
     padding-bottom: 8px;
-    overflow: hidden;
+    overflow: auto;
     -webkit-overflow-scrolling: touch;
     flex: 1;
     min-height: 0;
@@ -4002,7 +4002,7 @@ body.mobile-device .seating-controls {
     }
     body.mobile-device #seatingArea {
         flex: 1;
-        overflow: hidden;
+        overflow: auto;
         -webkit-overflow-scrolling: touch;
         min-height: 0;
     }
@@ -4983,5 +4983,204 @@ body.mobile-device .guide-sidebar { width: 160px; min-width: 160px; }
 body.mobile-device .guide-entry-list { width: 180px; min-width: 180px; }
 body.mobile-device .guide-content { padding: 24px 20px; }
 body.mobile-device #guideEntryContent h1 { font-size: 22px; }
+
+/* 组织活动弹窗 */
+#activityModal .modal-content {
+    max-width: 380px;
+}
+
+.activity-fee-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    font-size: 1.1em;
+}
+
+.activity-fee-row input {
+    width: 80px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: #f0ede8;
+    font-size: 1.1em;
+    text-align: center;
+    font-family: 'Noto Sans SC', sans-serif;
+}
+
+.activity-fee-row input:focus {
+    border-color: #e8c76a;
+    outline: none;
+    background: rgba(232,199,106,0.08);
+}
+
+.activity-preview {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.preview-section {
+    margin-bottom: 10px;
+}
+
+.preview-section:last-child {
+    margin-bottom: 0;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 0.85em;
+}
+
+.preview-label {
+    color: rgba(255,255,255,0.5);
+}
+
+.preview-value {
+    color: #f0ede8;
+    font-weight: 600;
+}
+
+.preview-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 6px 0;
+}
+
+/* 移动端适配 */
+body.mobile-device #activityModal .modal-content {
+    width: 90vw;
+    max-width: 350px;
+}
+
+body.mobile-device .activity-fee-row {
+    font-size: 0.95em;
+}
+
+body.mobile-device .activity-fee-row input {
+    width: 70px;
+    padding: 5px 8px;
+    font-size: 1em;
+}
+
+body.mobile-device .activity-preview {
+    padding: 10px 12px;
+}
+
+body.mobile-device .preview-row {
+    font-size: 0.78em;
+}
+
+/* 贷款弹窗 */
+#loanModal .modal-content {
+    max-width: 380px;
+}
+
+.loan-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+}
+
+.loan-card-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 0.85em;
+    color: rgba(240,237,232,0.8);
+}
+
+.loan-card-row span:first-child {
+    color: rgba(255,255,255,0.5);
+}
+
+.loan-borrow-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.loan-borrow-row input {
+    width: 80px;
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    color: #f0ede8;
+    font-size: 1.1em;
+    text-align: center;
+    font-family: 'Noto Sans SC', sans-serif;
+}
+
+.loan-borrow-row input:focus {
+    border-color: #e8c76a;
+    outline: none;
+    background: rgba(232,199,106,0.08);
+}
+
+.loan-info {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.loan-info p {
+    font-size: 0.8em;
+    color: rgba(255,255,255,0.6);
+    margin: 3px 0;
+    line-height: 1.5;
+}
+
+.loan-info strong {
+    color: #f0ede8;
+}
+
+.loan-preview {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.loan-preview .preview-row {
+    padding: 2px 0;
+}
+
+/* 移动端 */
+body.mobile-device #loanModal .modal-content {
+    max-width: 350px;
+    width: 90vw;
+}
+
+body.mobile-device .loan-borrow-row input {
+    width: 70px;
+    padding: 5px 8px;
+    font-size: 1em;
+}
+
+body.mobile-device .loan-card-row {
+    font-size: 0.78em;
+}
+
+body.mobile-device .loan-info p {
+    font-size: 0.72em;
+}
 
 
