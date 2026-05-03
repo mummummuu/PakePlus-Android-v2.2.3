@@ -44,7 +44,7 @@
 ## 易错点
 
 ### 物品系统
-- `INVENTORY_MAX_SLOTS = 9`，`INVENTORY_MAX_ITEM_STACK = 8`
+- `INVENTORY_MAX_SLOTS = 9`，`INVENTORY_MAX_ITEM_STACK = 64`
 - 物品按添加顺序显示，用完/丢弃后后续物品前移
 - `consumable: true` → 使用后消耗1件；`false` → 不消耗
 - 使用物品效果在 `_applyItemEffect` 方法中实现
@@ -107,6 +107,18 @@
 - 按钮ID: `exitGameBtn`
 - 使用通用确认弹窗 `genericConfirmModal` 进行二次确认
 - 确认后调用 `returnToMenu()` 清空游戏状态并返回主菜单
+
+### 活动系统
+- 活动类型已删除，改为**班费模式**：班主任输入每人班费金额，组织活动
+- 每个学生活动消耗 100 元，从班主任工资扣除
+- **fee < 100**：学生满意，积极性和精力按公式增加
+- **fee >= 100**：学生不满，积极性下降，有反抗概率
+  - 反抗概率 = (fee − 100) / 150（fee=250 时 100%）
+  - 扣血 = Math.min(2 + floor((fee − 80) / 40), 12)
+  - 积极性 = −Math.round((fee − 100) / 100 × 10)
+
+### 全勤奖
+- 每周无学生减少（死亡/劝退），班主任获得 150 元全勤奖
 
 ## 重要常量
 
