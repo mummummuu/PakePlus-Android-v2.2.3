@@ -10,6 +10,81 @@ body {
     overflow: hidden;
 }
 
+/* ===== 启动画面 ===== */
+#splashScreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    background: #0d1117;
+}
+
+#splashBg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+#splashContent {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+#splashContent.fade-out {
+    opacity: 0;
+    transform: scale(0.92);
+}
+
+#splashImage {
+    max-width: 60vw;
+    max-height: 50vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5), 0 0 120px rgba(0,0,0,0.3);
+    filter: blur(0.5px);
+    image-rendering: auto;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 3%, black 15%, black 85%, transparent 97%),
+                        linear-gradient(to right, transparent 3%, black 15%, black 85%, transparent 97%);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(to bottom, transparent 3%, black 15%, black 85%, transparent 97%),
+               linear-gradient(to right, transparent 3%, black 15%, black 85%, transparent 97%);
+    mask-composite: intersect;
+}
+
+#splashClickHint {
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 1.1em;
+    color: rgba(232, 199, 106, 0.8);
+    letter-spacing: 4px;
+    animation: splashBlink 1.5s ease-in-out infinite;
+    cursor: pointer;
+    user-select: none;
+}
+
+@keyframes splashBlink {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+body.mobile-device #splashImage {
+    max-width: 80vw;
+    max-height: 40vh;
+}
+
+body.mobile-device #splashClickHint {
+    font-size: 0.9em;
+}
+
 /* ===== 主菜单 ===== */
 #menuScreen {
     position: absolute;
@@ -17,7 +92,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    display: flex;
+    display: none;
     flex-direction: row;
     justify-content: center;
     align-items: center;
@@ -25,6 +100,12 @@ body {
     overflow: auto;
     background: #0d1117;
     -webkit-overflow-scrolling: touch;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+#menuScreen.show {
+    opacity: 1;
 }
 
 body.mobile-device #menuScreen {
@@ -33,6 +114,82 @@ body.mobile-device #menuScreen {
     -webkit-overflow-scrolling: touch;
     justify-content: flex-start;
     padding: 20px 10px;
+}
+
+.menu-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 2.5em;
+    font-weight: 900;
+    color: #f0ede8;
+    line-height: 1.2;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+#menuScreen.show .menu-title {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.2s;
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 300px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+#menuScreen.show .menu-buttons {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.4s;
+}
+
+.menu-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.75em;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    padding-bottom: 10px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+#menuScreen.show .menu-footer {
+    opacity: 1;
+    transition-delay: 0.5s;
+}
+
+body.mobile-device #menuScreen {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    padding: 20px 10px;
+}
+
+/* ===== 启动画面 ===== */
+#splashScreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    background: #0d1117;
 }
 
 /* 动态背景粒子画布 */
@@ -91,6 +248,89 @@ body.mobile-device #menuScreen {
     z-index: 1;
     width: 50%;
     max-width: 500px;
+}
+
+.form-heading {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.3em;
+    font-weight: 700;
+    color: #f0ede8;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.menu-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+}
+
+.form-group select,
+.form-group input {
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 15px;
+    color: #f0ede8;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-appearance: none;
+    width: 100%;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+    border-color: #e8c76a;
+    background: rgba(255,255,255,0.1);
+}
+
+.form-group select option {
+    background: #1a1f2e;
+    color: #f0ede8;
+}
+
+.start-btn {
+    margin-top: 10px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #e8c76a 0%, #c9952a 100%);
+    color: #1a1200;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 1.05em;
+    font-weight: 700;
+    letter-spacing: 3px;
+    transition: opacity 0.2s, transform 0.15s;
+    box-shadow: 0 4px 24px rgba(232,199,106,0.25);
+    width: 100%;
+}
+
+.start-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 32px rgba(232,199,106,0.35);
+}
+
+.start-btn:active {
+    transform: translateY(0);
 }
 
 .form-heading {
@@ -1186,6 +1426,251 @@ body.mobile-device .item-detail-description {
     font-size: 0.9em;
 }
 
+/* 背包按钮 */
+.btn-backpack {
+    margin-left: 12px;
+    padding: 6px 16px;
+    font-size: 0.85em;
+    font-weight: 600;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    border: 1px solid rgba(232, 199, 106, 0.4);
+    background: linear-gradient(135deg, rgba(232, 199, 106, 0.2), rgba(201, 149, 42, 0.15));
+    color: #e8c76a;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans SC', sans-serif;
+    white-space: nowrap;
+}
+
+.btn-backpack:hover {
+    background: linear-gradient(135deg, rgba(232, 199, 106, 0.35), rgba(201, 149, 42, 0.3));
+    border-color: rgba(232, 199, 106, 0.7);
+    transform: scale(1.05);
+}
+
+.btn-backpack:active {
+    transform: scale(0.97);
+}
+
+/* 背包弹窗 - 局部小弹窗，类似物品详情 */
+#backpackModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    display: none !important;
+    justify-content: center;
+    align-items: center;
+    z-index: 500;
+}
+
+#backpackModal.open {
+    display: flex !important;
+}
+
+/* 覆盖.modal-content的overflow限制 */
+#backpackModal .modal-content.backpack-modal {
+    max-height: 90vh !important;
+    overflow: hidden !important;
+    padding: 20px 24px;
+    width: 620px;
+    max-width: 95vw;
+    box-sizing: border-box;
+}
+
+/* 移动端覆盖 */
+body.mobile-device #backpackModal .modal-content.backpack-modal {
+    max-height: 90vh !important;
+    overflow: hidden !important;
+    padding: 12px;
+    width: 95vw;
+}
+
+/* 横屏覆盖 */
+@media (orientation: landscape) {
+    body.mobile-device #backpackModal .modal-content.backpack-modal {
+        width: 90vw;
+        max-width: 600px;
+    }
+}
+
+.backpack-modal .modal-title {
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+/* 分区标签 */
+.backpack-section-label {
+    font-size: 0.8em;
+    font-weight: 600;
+    color: rgba(232, 199, 106, 0.8);
+    text-align: center;
+    padding: 6px 0 3px;
+    letter-spacing: 2px;
+}
+
+.backpack-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 6px;
+}
+
+/* 物品栏网格 - 金色边框区分 */
+.backpack-grid.backpack-bar-grid {
+    border-color: rgba(232, 199, 106, 0.3);
+    background: rgba(232, 199, 106, 0.05);
+    margin-bottom: 10px;
+}
+
+/* 移动端网格 */
+body.mobile-device .backpack-grid {
+    gap: 4px;
+    padding: 6px;
+}
+
+/* 横屏网格 */
+@media (orientation: landscape) {
+    body.mobile-device .backpack-grid {
+        gap: 3px;
+        padding: 4px;
+    }
+}
+
+/* 关闭按钮 */
+.backpack-modal .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.backpack-modal .modal-close:hover {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.9);
+}
+
+.backpack-slot {
+    width: 100%;
+    aspect-ratio: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+}
+
+.backpack-slot:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(232, 199, 106, 0.5);
+}
+
+.backpack-slot.has-item {
+    background: rgba(232, 199, 106, 0.1);
+    border-color: rgba(232, 199, 106, 0.3);
+}
+
+.backpack-slot .item-icon {
+    font-size: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.backpack-slot img.item-icon {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+    image-rendering: pixelated !important;
+    image-rendering: crisp-edges !important;
+}
+
+.backpack-slot .item-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 12px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 1px 3px;
+    border-radius: 2px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* 交换模式高亮 */
+.backpack-slot.swap-source {
+    border: 2px solid #2ecc71;
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+}
+
+.backpack-bar-grid .backpack-slot.swap-target {
+    border: 2px dashed #3498db;
+    cursor: pointer;
+}
+
+.backpack-bar-grid .backpack-slot.swap-target:hover {
+    border-color: #2ecc71;
+    background: rgba(46, 204, 113, 0.15);
+}
+
+/* 交换提示 */
+.backpack-swap-hint {
+    text-align: center;
+    font-size: 0.75em;
+    color: rgba(52, 152, 219, 0.8);
+    padding: 4px 0;
+    display: none;
+}
+
+.backpack-swap-hint.show {
+    display: block;
+}
+
+/* 移动端适配 */
+body.mobile-device .btn-backpack {
+    padding: 5px 12px;
+    font-size: 0.75em;
+}
+
+/* 横屏适配 */
+@media (orientation: landscape) {
+    body.mobile-device #backpackModal .modal-content.backpack-modal {
+        width: 90vw;
+        max-width: 600px;
+    }
+    body.mobile-device .backpack-grid {
+        gap: 4px;
+        padding: 6px;
+    }
+}
+
 @keyframes valueIncrease {
     0% { 
         transform: scale(1); 
@@ -1325,9 +1810,11 @@ body.mobile-device .item-detail-description {
 }
 
 body.mobile-device .main-container {
-    overflow: auto;
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
-    min-height: 100vh;
+    flex: 1;
+    min-height: 0;
+    height: auto;
 }
 
 /* 左侧栏 */
@@ -3719,7 +4206,9 @@ body.mobile-device #gameScreen {
 body.mobile-device .main-container {
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
-    height: calc(100vh - 40px);
+    flex: 1;
+    min-height: 0;
+    height: auto;
 }
 
 body.mobile-device .seating-grid {
@@ -3991,7 +4480,7 @@ body.mobile-device .seating-controls {
 /* 游戏主界面横屏适配 */
 @media (orientation: landscape) {
     body.mobile-device .main-container {
-        height: calc(100vh - 40px);
+        height: auto;
         overflow: hidden;
     }
     body.mobile-device .left-panel,
@@ -4690,6 +5179,7 @@ body.mobile-device .canteen-item-icon {
 
 .toast {
     pointer-events: auto;
+    cursor: pointer;
     min-width: 280px;
     max-width: 400px;
     padding: 16px 20px;
@@ -5181,6 +5671,178 @@ body.mobile-device .loan-card-row {
 
 body.mobile-device .loan-info p {
     font-size: 0.72em;
+}
+
+/* 物品栏选择提示 */
+.item-bar-selection-prompt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+}
+
+.selection-prompt-content {
+    background: rgba(15, 23, 35, 0.98);
+    border: 1px solid rgba(232,199,106,0.3);
+    border-radius: 12px;
+    padding: 24px;
+    min-width: 400px;
+    max-width: 90vw;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.selection-prompt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.selection-prompt-title {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #f0ede8;
+}
+
+.selection-prompt-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.selection-prompt-close:hover {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.9);
+}
+
+.selection-prompt-message {
+    font-size: 0.9em;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.selection-prompt-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 8px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.selection-prompt-slot {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.selection-prompt-slot:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(232, 199, 106, 0.5);
+    transform: scale(1.05);
+}
+
+.selection-prompt-slot.has-item {
+    background: rgba(232, 199, 106, 0.1);
+    border-color: rgba(232, 199, 106, 0.3);
+}
+
+.selection-prompt-slot .item-icon {
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.selection-prompt-slot img.item-icon {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    image-rendering: pixelated !important;
+    image-rendering: crisp-edges !important;
+}
+
+.selection-prompt-slot .item-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 10px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 1px 3px;
+    border-radius: 2px;
+    min-width: 16px;
+    text-align: center;
+}
+
+/* 移动端适配 */
+body.mobile-device .selection-prompt-content {
+    min-width: 320px;
+    padding: 16px;
+}
+
+body.mobile-device .selection-prompt-title {
+    font-size: 1.1em;
+}
+
+body.mobile-device .selection-prompt-message {
+    font-size: 0.85em;
+}
+
+body.mobile-device .selection-prompt-grid {
+    gap: 6px;
+    padding: 10px;
+}
+
+body.mobile-device .selection-prompt-slot {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+}
+
+body.mobile-device .selection-prompt-slot .item-icon {
+    font-size: 22px;
+}
+
+body.mobile-device .selection-prompt-slot img.item-icon {
+    width: 36px;
+    height: 36px;
+}
+
+body.mobile-device .selection-prompt-slot .item-count {
+    font-size: 9px;
+    padding: 1px 2px;
+    min-width: 14px;
 }
 
 
